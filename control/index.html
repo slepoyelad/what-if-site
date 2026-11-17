@@ -173,6 +173,12 @@ ul.tips { margin: 0; padding-inline-start: 20px; }
 ul.tips li + li { margin-top: 6px; }
 ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-align: left; }
 .queue li { padding: 2px 0; }
+#qbox > summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#qbox > summary::-webkit-details-marker { display: none; }
+.qhead { display: flex; align-items: center; gap: 10px; }
+.qhead .qnext { flex: 1; font-weight: 400; }
+.qarrow { font-size: 16px; color: var(--muted, #9a94c0); transition: transform .2s; }
+#qbox[open] .qarrow { transform: rotate(180deg); }
 .fmt { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; margin-inline-start: 4px; direction: rtl; background: rgba(140,120,255,.18); color: #b9a8ff; }
 .fmt.catch { background: rgba(255,170,60,.18); color: #ffbe6b; }
 
@@ -541,10 +547,13 @@ function queueView(d) {
   const queued = q.filter((x) => x.status === "queued");
   const slots = upcomingSlots(queued.length);
   const sch = d.schedule || {};
-  const head = `<h2>תור לפרסום ${queued.length ? `<span class="count">${queued.length}</span>` : ""}</h2>`;
+  const now = q.find((x) => x.status === "publishing");
+  const first = queued.find((x) => x.position === 1) || queued[0];
+  const next = now ? `מתפרסם עכשיו: #${now.number}` : first && slots[0] ? `הבא: #${first.number} ${ilTime(slots[0])}` : "";
+  const head = `<h2 class="qhead"><span>תור לפרסום ${queued.length ? `<span class="count">${queued.length}</span>` : ""}</span><span class="small muted qnext">${next}</span><span class="qarrow">▾</span></h2>`;
   const how = `<div class="small muted" style="margin-top:10px">סרטון אחד בכל מועד, עד ${sch.daily || 2} ביום. המועדים: ${(sch.slots_utc || []).slice(0, sch.daily || 2).map((s) => { const [h, m] = s.split(":").map(Number); const t = new Date(); t.setUTCHours(h, m, 0, 0); return ilTime(t, false); }).join(" ו-")} (שעון ישראל). הפלטפורמות מתפרסמות אחת אחרי השנייה, כ-${sch.stagger_min || 20} דקות ביניהן.</div>`;
   if (!q.length) return `<section>${head}<div class="card empty">התור ריק. סרטון שתאשר ייכנס לכאן ויתפרסם במועד הפנוי הבא.${how}</div></section>`;
-  return `<section>${head}<div class="card">${q.map((x) => {
+  return `<section><details id="qbox" ${queueOpen() ? "open" : ""}><summary>${head}</summary><div class="card">${q.map((x) => {
     let line, buttons = "";
     if (x.status === "publishing") {
       line = `<span class="sent">מתפרסם עכשיו:</span> ` + x.platforms.map((p) => `${PLAT_HE[p]} ${x.posted.includes(p) ? "✓" : "⏳"}`).join(" · ");
@@ -560,8 +569,13 @@ function queueView(d) {
     return `<div class="pub"><div class="t">${esc(x.title)} <span class="chip">#${x.number}</span></div>
       <div class="small muted">${line}</div>
       ${x.error ? `<div class="small" style="color:var(--bad);white-space:pre-line">${esc(x.error)}</div>` : ""}${buttons}</div>`;
-  }).join("")}${how}</div></section>`;
+  }).join("")}${how}</div></details></section>`;
 }
+/** The queue list opens and closes with a tap on its title; the choice is remembered on this phone. */
+function queueOpen() { try { return localStorage.getItem("wiq.queueOpen") === "1"; } catch { return false; } }
+document.addEventListener("toggle", (e) => {
+  if (e.target.id === "qbox") try { localStorage.setItem("wiq.queueOpen", e.target.open ? "1" : "0"); } catch {}
+}, true);
 
 function numbersView(d) {
   const t = d.totals || {};
