@@ -133,7 +133,7 @@ h2 .count { background: var(--accent); color: var(--accent-ink); border-radius: 
 .actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 12px; }
 details.opts { margin-top: 8px; font-size: 14px; }
 details.opts summary { color: var(--muted); cursor: pointer; padding: 4px 0; }
-.opts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.opts-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
 label.f { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
 select, input[type=text], input[type=password], textarea {
   font: inherit; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); min-height: 44px;
@@ -340,7 +340,7 @@ function pendingReels() {
   for (const run of state.makeRuns.filter((x) => x.run_number > newest)) {
     const key = "reel-" + run.run_number;
     const age = (Date.now() - new Date(run.created_at).getTime()) / 86400000;
-    if (!known.has(key) && age <= 14) list.push({ key, number: run.run_number, title: `סרטון מס' ${run.run_number}`, made_at: run.created_at, status: "pending", fromRun: run, posts: {} });
+    if (!known.has(key) && age <= 14) list.push({ key, number: run.run_number, title: `סרטון מס' ${run.run_number}`, made_at: run.updated_at || run.created_at, status: "pending", fromRun: run, posts: {} });
   }
   const sent = sentMap();
   return list.map((r) => ({ ...r, sent: sent[r.key] && Date.now() - sent[r.key].at < 6 * 3600e3 ? sent[r.key] : null }))
@@ -472,7 +472,8 @@ function noDataView() {
 }
 
 function pendingView(list) {
-  return `<section><h2>מחכים לאישור ${list.length ? `<span class="count">${list.length}</span>` : ""}</h2>
+  const open = list.filter((r) => !r.sent).length;
+  return `<section><h2>מחכים לאישור ${open ? `<span class="count">${open}</span>` : ""}</h2>
   ${list.length ? `<div class="stack">${list.map(pendingCard).join("")}</div>`
     : `<div class="card empty">אין סרטונים שמחכים. הבוט מכין סרטון חדש פעמיים ביום (17:00 ו-23:00), או שאפשר ללחוץ "סרטון חדש עכשיו" למטה.</div>`}
   </section>`;
@@ -499,7 +500,6 @@ function pendingCard(r) {
           <label class="f">איפה<select data-platforms="${n}">
             <option value="everywhere">בכל מקום</option><option value="instagram">רק אינסטגרם</option><option value="youtube">רק יוטיוב</option>
             <option value="facebook">רק פייסבוק</option><option value="tiktok">רק טיקטוק</option></select></label>
-          <label class="f">פתיחה<select data-variant="${n}"><option value="B">B (רגילה)</option><option value="A">A</option></select></label>
         </div>
         <button class="btn-ghost small" style="margin-top:8px;width:100%" data-now="${n}">פרסם מיד, בלי לחכות לתור</button></details>`}
     </div></div>`;
