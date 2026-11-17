@@ -110,6 +110,10 @@ h2 .count { background: var(--accent); color: var(--accent-ink); border-radius: 
 .row.split { justify-content: space-between; }
 .banner { border-radius: 14px; padding: 10px 14px; background: var(--card-2); display: flex; gap: 10px; align-items: center; font-size: 14px; }
 .banner a { color: inherit; }
+.banner.prog { display: grid; gap: 8px; text-decoration: none; }
+.banner.prog .dot { display: inline-block; margin-inline-end: 6px; vertical-align: middle; }
+.bar { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 18%, transparent); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 999px; background: var(--accent); transition: width .6s ease; }
 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); flex: none; animation: pulse 1.4s infinite; }
 @keyframes pulse { 50% { opacity: .3; } }
 .error { border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
@@ -222,7 +226,7 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 let token = store.get(TOKEN_KEY);
-let state = { data: null, runs: [], makeRuns: [], branch: "main", loading: false, error: null, noData: false, lastLoad: 0 };
+let state = { data: null, runs: [], steps: {}, history: null, makeRuns: [], branch: "main", loading: false, error: null, noData: false, lastLoad: 0 };
 const blobs = new Map();
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -288,9 +292,21 @@ async function fileBlob(path, type) {
 
 async function load(full = true, soft = false) {
   if (state.loading) return;
-  state.loading = true; render(true);
+  state.loading = true; if (!soft) render(true);
   try {
-    const jobs = [ghJson("/actions/runs?per_page=15").then((r) => (state.runs = r.workflow_runs || []))];
+    const jobs = [ghJson("/actions/runs?per_page=15").then(async (r) => {
+      const before = new Set(running().map((x) => x.id));
+      state.runs = r.workflow_runs || [];
+      // Something just finished: fetch the new data too.
+      if ([...before].some((id) => !running().some((x) => x.id === id))) { full = true; state.history = null; }
+      // The current step of each running workflow, for the progress bar.
+      const live = state.runs.filter((x) => x.status === "in_progress").slice(0, 3);
+      const steps = {};
+      await Promise.all(live.map((x) => ghJson(`/actions/runs/${x.id}/jobs`).then((j) => { steps[x.id] = (j.jobs || []).flatMap((jb) => jb.steps || []); }).catch(() => {})));
+      state.steps = steps;
+    })];
+    await jobs[0];
+    if (!state.history) jobs.push(ghJson("/actions/runs?status=success&per_page=60").then((r) => (state.history = r.workflow_runs || [])).catch(() => {}));
     if (full || !state.data) {
       if (!state.branchKnown) jobs.push(ghJson("").then((r) => { state.branch = r.default_branch || "main"; state.branchKnown = true; }));
       jobs.push(ghJson("/actions/workflows/make-reel.yml/runs?status=success&per_page=10").then((r) => (state.makeRuns = r.workflow_runs || [])).catch(() => {}));
@@ -319,7 +335,9 @@ function pendingReels() {
   const known = new Map((d?.reels || []).map((r) => [r.key, r]));
   const list = (d?.reels || []).filter((r) => r.status === "pending");
   // Reels made before the dashboard existed (or whose dashboard step failed).
-  for (const run of state.makeRuns) {
+  // Older runs were made before the dashboard existed (reel 1, a test copy), so only newer ones count.
+  const newest = Math.max(0, ...(d?.reels || []).map((r) => r.number || 0));
+  for (const run of state.makeRuns.filter((x) => x.run_number > newest)) {
     const key = "reel-" + run.run_number;
     const age = (Date.now() - new Date(run.created_at).getTime()) / 86400000;
     if (!known.has(key) && age <= 14) list.push({ key, number: run.run_number, title: `סרטון מס' ${run.run_number}`, made_at: run.created_at, status: "pending", fromRun: run, posts: {} });
@@ -328,7 +346,7 @@ function pendingReels() {
   return list.map((r) => ({ ...r, sent: sent[r.key] && Date.now() - sent[r.key].at < 6 * 3600e3 ? sent[r.key] : null }))
     .sort((a, b) => (b.number || 0) - (a.number || 0));
 }
-const running = () => state.runs.filter((r) => r.status === "in_progress" || r.status === "queued" || r.status === "waiting");
+const running = () => state.runs.filter((r) => ["in_progress", "queued", "waiting", "pending", "requested"].includes(r.status));
 
 // ---- rendering ----------------------------------------------------------------------------
 // Background refreshes wait while you are watching a preview, typing, or answering a question.
@@ -404,11 +422,47 @@ function logout(msg) {
   blobs.clear(); render();
 }
 
+// Typical run length in minutes, used until there are past runs to learn from.
+const TYPICAL_MIN = { "Make a reel": 12, "Publish a reel": 4, "Publish queue": 3, "Daily stats": 2, "Review a reel": 1, "Update dashboard": 1 };
+const STEP_HE = {
+  "Set up job": "מתחיל", "Run actions/checkout@v4": "מתכונן", "Run actions/setup-node@v4": "מתכונן", "Run actions/setup-python@v5": "מתכונן",
+  "Check the Claude login": "מתכונן", "System packages": "מתקין כלים", "Cache Python environment": "מתכונן", "Cache Kokoro voice model": "מתכונן",
+  "Install Node packages": "מתקין כלים", "Cache Remotion browser": "מתכונן", "Install the voice (CPU)": "מתקין את הקול",
+  "Make the reel": "כותב תסריט, מקליט קול ומנפיש", "Approval sheet": "בודק איכות", "Post texts for each platform": "כותב כיתובים לכל רשת",
+  "Upload the reel": "שומר את הסרטון", "Update the dashboard": "מעדכן את הלוח", "Save topic history": "שומר", "Save post history": "שומר",
+  "Download the approved reel": "מוריד את הסרטון", "Download the reel": "מוריד את הסרטון", "Publish": "מפרסם",
+  "Install ffmpeg (makes the video match Instagram's format)": "מכין את הקובץ", "Install ffmpeg": "מכין את הקובץ",
+  "Fetch the numbers": "מושך מספרים מהרשתות", "Renew logins": "מחדש התחברויות", "Save stats": "שומר",
+};
+function typicalMinutes(name) {
+  const done = (state.history || []).filter((r) => r.name === name && r.conclusion === "success" && r.run_started_at)
+    .map((r) => (new Date(r.updated_at) - new Date(r.run_started_at)) / 60000).filter((m) => m > 0.3).sort((a, b) => a - b);
+  return done.length ? done[Math.floor(done.length / 2)] : TYPICAL_MIN[name] || 3;
+}
+function progressOf(x) {
+  if (x.status !== "in_progress") return null;
+  const elapsed = (Date.now() - new Date(x.run_started_at || x.created_at)) / 60000;
+  const total = typicalMinutes(x.name);
+  const steps = state.steps[x.id] || [];
+  const byTime = elapsed / total;
+  const byStep = steps.length ? steps.filter((s) => s.status === "completed").length / steps.length : 0;
+  const pct = Math.max(2, Math.min(97, Math.round(100 * Math.max(byTime, byStep * 0.9))));
+  const current = steps.find((s) => s.status === "in_progress");
+  const left = Math.max(1, Math.round(total - elapsed));
+  return { pct, step: current ? STEP_HE[current.name] || "" : "", left: elapsed < total ? left : null };
+}
 function runningView() {
   const r = running();
   if (!r.length) return "";
-  return `<div class="stack" style="margin-top:12px">${r.map((x) => `<a class="banner" href="${esc(x.html_url)}" target="_blank" rel="noopener">
-    <span class="dot"></span><span>${esc(WORKFLOW_HE[x.name] || x.name)} (${x.status === "queued" ? "בתור" : "התחיל " + ago(new Date(x.run_started_at || x.created_at))})</span></a>`).join("")}</div>`;
+  return `<div class="stack" style="margin-top:12px">${r.map((x) => {
+    const p = progressOf(x);
+    const label = esc(WORKFLOW_HE[x.name] || x.name);
+    if (!p) return `<a class="banner" href="${esc(x.html_url)}" target="_blank" rel="noopener"><span class="dot"></span><span>${label} (מחכה בתור)</span></a>`;
+    return `<a class="banner prog" href="${esc(x.html_url)}" target="_blank" rel="noopener">
+      <div class="row split" style="width:100%"><span><span class="dot"></span> ${label}</span><b>${p.pct}%</b></div>
+      <div class="bar" role="progressbar" aria-valuenow="${p.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p.pct}%"></i></div>
+      <div class="small muted">${p.step ? esc(p.step) + " · " : ""}${p.left ? `נשארו בערך ${p.left} ${p.left === 1 ? "דקה" : "דקות"}` : "כמעט סיים"}</div></a>`;
+  }).join("")}</div>`;
 }
 
 function noDataView() {
@@ -710,6 +764,10 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // ---- start --------------------------------------------------------------------------------
 render();
 if (token) load(true);
+// While the bot is working, refresh the progress every 20 seconds.
+setInterval(() => {
+  if (token && document.visibilityState === "visible" && running().length && !state.loading) load(false, true);
+}, 20e3);
 setInterval(() => {
   if (!token || document.visibilityState !== "visible") return;
   if (state.dirty && !busy()) render();
