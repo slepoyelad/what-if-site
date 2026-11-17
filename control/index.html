@@ -173,6 +173,10 @@ ul.tips { margin: 0; padding-inline-start: 20px; }
 ul.tips li + li { margin-top: 6px; }
 ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-align: left; }
 .queue li { padding: 2px 0; }
+.queue li { display: list-item; }
+.queue .qt { display: inline; }
+.drop { all: unset; cursor: pointer; margin-inline-start: 8px; padding: 2px 8px; border-radius: 99px; font-size: 12px; color: var(--muted); border: 1px solid rgba(140,135,170,.35); direction: rtl; }
+.drop.armed { color: #fff; background: var(--bad, #e5484d); border-color: transparent; }
 #qbox > summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 #qbox > summary::-webkit-details-marker { display: none; }
 .qhead { display: flex; align-items: center; gap: 10px; }
@@ -542,6 +546,17 @@ function nextSlotText() {
   return t ? ilTime(t) : "המועד הבא";
 }
 
+/** Coming topics, without the ones deleted on this phone in the last 30 minutes (the bot is still removing them). */
+const DROP_KEY = "wiq.dropped";
+function droppedMap() { try { return JSON.parse(store.get(DROP_KEY) || "{}"); } catch { return {}; } }
+function upcoming(d) {
+  const gone = droppedMap();
+  return (d.queue || []).map((q) => typeof q === "string"
+      ? { t: q, f: /\bbut\b/i.test(q) ? "catch" : "classic" }
+      : { t: q.title, f: q.format })
+    .filter((x) => !(gone[x.t] && Date.now() - gone[x.t] < 30 * 60e3));
+}
+
 function queueView(d) {
   const q = (d.publish_queue || []).slice().sort((a, b) => (a.status === "publishing" ? -1 : b.status === "publishing" ? 1 : 0) || a.order - b.order);
   const queued = q.filter((x) => x.status === "queued");
@@ -653,7 +668,7 @@ function bindChart(el) {
 function nextView(d) {
   return `<section><h2>מה לעשות הלאה</h2><div class="card stack">
     ${(d.insights || []).length ? `<ul class="tips">${d.insights.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
-    ${(d.queue || []).length ? `<div><b class="small">הנושאים הבאים בתור:</b><ol class="queue">${d.queue.map((q) => { const t = typeof q === "string" ? q : q.title; const f = typeof q === "string" ? (/\bbut\b/i.test(q) ? "catch" : "classic") : q.format; return `<li>${esc(t)} <span class="fmt ${f}">${f === "catch" ? "עם קאץ׳" : "קלאסי"}</span></li>`; }).join("")}</ol></div>` : ""}
+    ${upcoming(d).length ? `<div><b class="small">הנושאים הבאים בתור:</b><ol class="queue">${upcoming(d).map(({ t, f }) => `<li><span class="qt">${esc(t)} <span class="fmt ${f}">${f === "catch" ? "עם קאץ׳" : "קלאסי"}</span></span><button class="drop" data-drop="${esc(t)}" aria-label="מחק נושא">✕</button></li>`).join("")}</ol></div>` : ""}
     <div class="stack"><label class="f">סרטון חדש עכשיו (אפשר לכתוב נושא, או להשאיר ריק לנושא הבא בתור)
       <input id="topic" type="text" dir="ltr" placeholder="What if ...?"></label>
       <button class="btn-primary" data-make>צור סרטון חדש עכשיו</button>
@@ -747,6 +762,21 @@ function bindMain() {
       toast("נדחה. הוא לא יוצע שוב.");
       render();
     }, true);
+  }));
+  // Deleting a coming topic takes two taps on the ✕ and then a confirm, so it can't happen by mistake.
+  document.querySelectorAll("[data-drop]").forEach((b) => (b.onclick = () => {
+    const t = b.dataset.drop;
+    if (!b.classList.contains("armed")) {
+      b.classList.add("armed"); b.textContent = "למחוק?";
+      setTimeout(() => { b.classList.remove("armed"); b.textContent = "✕"; }, 4000);
+      return;
+    }
+    confirmSheet("למחוק את הנושא?", `"${t}" יימחק מהרשימה ולא ייעשה ממנו סרטון. הבוט יוסיף רעיון חדש במקומו תוך 2 עד 3 דקות.`, "מחק", async () => {
+      await dispatch("dashboard.yml", { drop_topic: t });
+      const m = droppedMap(); m[t] = Date.now(); store.set(DROP_KEY, JSON.stringify(m));
+      toast("נמחק. רעיון חדש יופיע בעוד כמה דקות.");
+      render();
+    });
   }));
   document.querySelectorAll("[data-run]").forEach((b) => (b.onclick = async () => {
     b.disabled = true;
