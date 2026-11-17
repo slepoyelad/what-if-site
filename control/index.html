@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>What if? Control</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="What if?">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f0c22">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+<!--
+  The page itself holds no data. It reads the private repo slepoyelad/what_if_question
+  (the `dashboard` branch and the Actions runs) through the GitHub API with a token that
+  the owner types in once; the token stays in this phone's browser only.
+-->
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f3fa;
+  --card: #ffffff;
+  --card-2: #f0eef8;
+  --line: #e2dfee;
+  --text: #17142b;
+  --text-2: #57536e;
+  --muted: #8a87a0;
+  --accent: #6d4ce6;
+  --accent-ink: #ffffff;
+  --good: #0a7d3c;
+  --warn: #9a6200;
+  --bad: #c0362c;
+  --s1: #2a78d6; /* instagram */
+  --s2: #eb6834; /* youtube */
+  --s3: #1baf7a; /* facebook */
+  --s4: #6250d6; /* tiktok */
+  --shadow: 0 1px 2px rgba(20, 10, 60, .06), 0 4px 16px rgba(20, 10, 60, .06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f0c22;
+    --card: #1a1634;
+    --card-2: #231e43;
+    --line: #2f2a52;
+    --text: #f1effb;
+    --text-2: #c2bedb;
+    --muted: #8e89ad;
+    --accent: #8f74ff;
+    --accent-ink: #0f0c22;
+    --good: #3ccf7c;
+    --warn: #f0b440;
+    --bad: #ff7468;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #9085e9;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f0c22; --card: #1a1634; --card-2: #231e43; --line: #2f2a52; --text: #f1effb; --text-2: #c2bedb; --muted: #8e89ad;
+  --accent: #8f74ff; --accent-ink: #0f0c22; --good: #3ccf7c; --warn: #f0b440; --bad: #ff7468;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #9085e9; --shadow: none;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.5 Rubik, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px);
+}
+main { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+header.top {
+  position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; margin-top: calc(-1 * env(safe-area-inset-top));
+}
+.top-in { max-width: 720px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+.top img { width: 36px; height: 36px; border-radius: 10px; }
+.top h1 { font-size: 18px; margin: 0; line-height: 1.2; }
+.top .sub { font-size: 12px; color: var(--muted); }
+.top .grow { flex: 1; min-width: 0; }
+button, .btn {
+  font: inherit; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px;
+  background: var(--card-2); color: var(--text); font-weight: 500;
+}
+button:disabled { opacity: .55; cursor: default; }
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-danger { background: transparent; color: var(--bad); border: 1px solid color-mix(in srgb, var(--bad) 45%, transparent); }
+.btn-ghost { background: transparent; color: var(--text-2); }
+.icon-btn { width: 44px; padding: 0; border-radius: 50%; }
+section { margin: 18px 0 26px; }
+h2 { font-size: 17px; margin: 0 0 10px; display: flex; align-items: center; gap: 8px; }
+h2 .count { background: var(--accent); color: var(--accent-ink); border-radius: 999px; font-size: 12px; padding: 1px 8px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); }
+.stack > * + * { margin-top: 12px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.row.split { justify-content: space-between; }
+.banner { border-radius: 14px; padding: 10px 14px; background: var(--card-2); display: flex; gap: 10px; align-items: center; font-size: 14px; }
+.banner a { color: inherit; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn); flex: none; animation: pulse 1.4s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.error { border-color: color-mix(in srgb, var(--bad) 50%, var(--line)); }
+.error b { color: var(--bad); }
+
+/* pending reels */
+.reel { display: grid; grid-template-columns: 116px 1fr; gap: 14px; }
+.thumb { position: relative; width: 116px; aspect-ratio: 9/16; border-radius: 12px; overflow: hidden; background: var(--card-2); }
+.thumb img, .thumb video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb .play { position: absolute; inset: 0; margin: auto; width: 52px; height: 52px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font-size: 20px; padding: 0; }
+.thumb .noprev { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 8px; font-size: 12px; color: var(--muted); }
+.reel h3 { font-size: 16px; margin: 0 0 4px; line-height: 1.35; direction: ltr; text-align: right; unicode-bidi: plaintext; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12px; background: var(--card-2); color: var(--text-2); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.caption { font-size: 13px; color: var(--text-2); direction: ltr; text-align: left; white-space: pre-wrap; max-height: 4.6em; overflow: hidden; margin: 6px 0 0; }
+.caption.open { max-height: none; }
+.actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 12px; }
+details.opts { margin-top: 8px; font-size: 14px; }
+details.opts summary { color: var(--muted); cursor: pointer; padding: 4px 0; }
+.opts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+label.f { display: grid; gap: 4px; font-size: 13px; color: var(--text-2); }
+select, input[type=text], input[type=password], textarea {
+  font: inherit; width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--text); min-height: 44px;
+}
+.sent { color: var(--good); font-weight: 500; }
+@media (max-width: 380px) { .reel { grid-template-columns: 96px 1fr; } .thumb { width: 96px; } }
+
+/* numbers */
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 560px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow); }
+.kpi .v { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .l { font-size: 13px; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th { font-weight: 500; color: var(--muted); font-size: 12px; text-align: start; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+td { padding: 9px 4px; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+td.n, th.n { text-align: left; }
+.pl { display: inline-flex; align-items: center; gap: 7px; }
+.sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.chart-wrap { position: relative; }
+.chart-wrap svg { direction: ltr; display: block; width: 100%; height: auto; overflow: visible; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+.tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; border-radius: 8px; padding: 6px 8px; white-space: nowrap; transform: translate(-50%, -110%); opacity: 0; transition: opacity .1s; }
+.tip.on { opacity: 1; }
+.empty { font-size: 14px; color: var(--muted); padding: 6px 0; }
+
+/* reel list */
+.pub { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.pub:last-child { border-bottom: 0; padding-bottom: 2px; }
+.pub:first-child { padding-top: 2px; }
+.pub .t { font-weight: 500; direction: ltr; text-align: right; unicode-bidi: plaintext; }
+.plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 8px; }
+.plat { display: flex; align-items: center; gap: 8px; background: var(--card-2); border-radius: 10px; padding: 7px 10px; font-size: 13px; color: var(--text); text-decoration: none; }
+.plat .num { margin-inline-start: auto; font-variant-numeric: tabular-nums; color: var(--text-2); }
+ul.tips { margin: 0; padding-inline-start: 20px; }
+ul.tips li + li { margin-top: 6px; }
+ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-align: left; }
+.queue li { padding: 2px 0; }
+
+/* modal */
+.sheet-bg { position: fixed; inset: 0; background: rgba(5, 3, 15, .55); z-index: 20; display: none; align-items: flex-end; justify-content: center; }
+.sheet-bg.on { display: flex; }
+.sheet { background: var(--card); width: 100%; max-width: 560px; border-radius: 22px 22px 0 0; padding: 20px 16px calc(env(safe-area-inset-bottom) + 18px); }
+.sheet h3 { margin: 0 0 6px; font-size: 18px; }
+.sheet .row { margin-top: 16px; }
+.sheet .row button { flex: 1; }
+.toast { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 18px); left: 16px; right: 16px; max-width: 520px; margin: 0 auto; background: var(--text); color: var(--bg); padding: 12px 14px; border-radius: 12px; z-index: 30; font-size: 14px; display: none; }
+.toast.on { display: block; }
+
+/* login */
+.login { max-width: 460px; margin: 8vh auto 0; }
+.login ol { padding-inline-start: 20px; color: var(--text-2); font-size: 14px; }
+.login ol li + li { margin-top: 6px; }
+.login a { color: var(--accent); }
+.spin { width: 18px; height: 18px; border: 2px solid currentColor; border-top-color: transparent; border-radius: 50%; animation: r .8s linear infinite; display: inline-block; }
+@keyframes r { to { transform: rotate(360deg); } }
+footer { margin: 30px 0 10px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="sheet-bg" id="sheet"><div class="sheet" id="sheetBody"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const REPO = "slepoyelad/what_if_question";
+const API = "https://api.github.com/repos/" + REPO;
+const TOKEN_KEY = "wiq.token";
+const SENT_KEY = "wiq.sent";
+const PLATFORMS = [
+  { id: "instagram", he: "אינסטגרם", color: "var(--s1)" },
+  { id: "youtube", he: "יוטיוב", color: "var(--s2)" },
+  { id: "facebook", he: "פייסבוק", color: "var(--s3)" },
+  { id: "tiktok", he: "טיקטוק", color: "var(--s4)" },
+];
+const WORKFLOW_HE = {
+  "Make a reel": "הבוט מכין סרטון חדש", "Publish a reel": "מפרסם סרטון", "Daily stats": "מושך מספרים חדשים",
+  "Review a reel": "שומר את ההחלטה שלך", "Publish queue": "מפרסם מהתור", "Update dashboard": "מעדכן את הלוח", "TikTok login": "התחברות לטיקטוק",
+};
+const CATEGORY_HE = {
+  science_space: "מדע וחלל", money: "כסף", tech_wrong_time: "טכנולוגיה", superpowers_fantasy: "כוחות על",
+  life_elsewhere: "חיים במקום אחר", alt_history: "היסטוריה חלופית", geopolitics: "גאופוליטיקה",
+};
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+let token = store.get(TOKEN_KEY);
+let state = { data: null, runs: [], makeRuns: [], branch: "main", loading: false, error: null, noData: false, lastLoad: 0 };
+const blobs = new Map();
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = (n) => (n == null ? "–" : Number(n).toLocaleString("he-IL"));
+const short = (n) => {
+  if (n == null) return "–";
+  if (n >= 1e6) return parseFloat((n / 1e6).toFixed(n >= 1e7 ? 0 : 1)) + "M";
+  if (n >= 1e4) return parseFloat((n / 1e3).toFixed(n >= 1e5 ? 0 : 1)) + "K";
+  return fmt(n);
+};
+const utc = (s) => (s ? new Date(String(s).includes("T") ? s : String(s).replace(" ", "T") + "Z") : null);
+function ago(d) {
+  if (!d) return "";
+  const m = Math.round((Date.now() - d.getTime()) / 60000);
+  if (m < 1) return "עכשיו";
+  if (m < 60) return m === 1 ? "לפני דקה" : `לפני ${m} דקות`;
+  const h = Math.round(m / 60);
+  if (h < 24) return h === 1 ? "לפני שעה" : `לפני ${h} שעות`;
+  const days = Math.round(h / 24);
+  return days === 1 ? "אתמול" : `לפני ${days} ימים`;
+}
+const when = (d) => (d ? d.toLocaleString("he-IL", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
+
+function toast(msg, ms = 3500) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.remove("on"), ms);
+}
+
+// ---- GitHub API ---------------------------------------------------------------------------
+async function gh(path, opts = {}) {
+  const res = await fetch(path.startsWith("http") ? path : API + path, {
+    cache: "no-store",
+    ...opts,
+    headers: { Authorization: "Bearer " + token, Accept: opts.accept || "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", ...(opts.body ? { "Content-Type": "application/json" } : {}) },
+  });
+  if (res.status === 401) { logout("הקוד לא עובד יותר (אולי פג תוקף). צריך להזין קוד חדש."); throw new Error("401"); }
+  return res;
+}
+async function ghJson(path) {
+  const r = await gh(path);
+  if (!r.ok) { const e = new Error(r.status + " " + (await r.text()).slice(0, 200)); e.status = r.status; throw e; }
+  return r.json();
+}
+async function dispatch(file, inputs) {
+  const r = await gh(`/actions/workflows/${file}/dispatches`, { method: "POST", body: JSON.stringify({ ref: state.branch, inputs }) });
+  if (r.status === 204 || r.ok) return true;
+  const txt = await r.text();
+  if (r.status === 403 || r.status === 404) throw new Error("לקוד אין הרשאה להפעיל את הבוט. צריך קוד עם Actions: Read and write (ראו הוראות).");
+  throw new Error("GitHub סירב: " + r.status + " " + txt.slice(0, 160));
+}
+async function fileBlob(path, type) {
+  if (blobs.has(path)) return blobs.get(path);
+  const r = await gh(`/contents/${path}?ref=dashboard`, { accept: "application/vnd.github.raw+json" });
+  if (!r.ok) throw new Error("לא נמצא " + path);
+  const url = URL.createObjectURL(new Blob([await r.arrayBuffer()], { type }));
+  blobs.set(path, url);
+  return url;
+}
+
+async function load(full = true, soft = false) {
+  if (state.loading) return;
+  state.loading = true; render(true);
+  try {
+    const jobs = [ghJson("/actions/runs?per_page=15").then((r) => (state.runs = r.workflow_runs || []))];
+    if (full || !state.data) {
+      if (!state.branchKnown) jobs.push(ghJson("").then((r) => { state.branch = r.default_branch || "main"; state.branchKnown = true; }));
+      jobs.push(ghJson("/actions/workflows/make-reel.yml/runs?status=success&per_page=10").then((r) => (state.makeRuns = r.workflow_runs || [])).catch(() => {}));
+      jobs.push(gh("/contents/data.json?ref=dashboard", { accept: "application/vnd.github.raw+json" }).then(async (r) => {
+        if (r.status === 404) { state.noData = true; return; }
+        if (!r.ok) throw new Error(r.status + " " + (await r.text()).slice(0, 200));
+        state.data = await r.json(); state.noData = false;
+      }));
+    }
+    await Promise.all(jobs);
+    state.error = null;
+    state.lastLoad = Date.now();
+  } catch (e) {
+    if (e.message !== "401") state.error = e.status === 404 ? "לא מוצא את הבוט. בדקו שלקוד יש גישה ל-what_if_question." : e.message;
+  } finally {
+    state.loading = false; render(soft);
+  }
+}
+
+// ---- derived ------------------------------------------------------------------------------
+function sentMap() { try { return JSON.parse(store.get(SENT_KEY) || "{}"); } catch { return {}; } }
+function markSent(key, what) { const m = sentMap(); m[key] = { what, at: Date.now() }; store.set(SENT_KEY, JSON.stringify(m)); }
+
+function pendingReels() {
+  const d = state.data;
+  const known = new Map((d?.reels || []).map((r) => [r.key, r]));
+  const list = (d?.reels || []).filter((r) => r.status === "pending");
+  // Reels made before the dashboard existed (or whose dashboard step failed).
+  for (const run of state.makeRuns) {
+    const key = "reel-" + run.run_number;
+    const age = (Date.now() - new Date(run.created_at).getTime()) / 86400000;
+    if (!known.has(key) && age <= 14) list.push({ key, number: run.run_number, title: `סרטון מס' ${run.run_number}`, made_at: run.created_at, status: "pending", fromRun: run, posts: {} });
+  }
+  const sent = sentMap();
+  return list.map((r) => ({ ...r, sent: sent[r.key] && Date.now() - sent[r.key].at < 6 * 3600e3 ? sent[r.key] : null }))
+    .sort((a, b) => (b.number || 0) - (a.number || 0));
+}
+const running = () => state.runs.filter((r) => r.status === "in_progress" || r.status === "queued" || r.status === "waiting");
+
+// ---- rendering ----------------------------------------------------------------------------
+// Background refreshes wait while you are watching a preview, typing, or answering a question.
+function busy() {
+  const a = document.activeElement;
+  return [...document.querySelectorAll("video")].some((v) => !v.paused) || $("#sheet").classList.contains("on")
+    || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) || !!$("#topic")?.value || !!document.querySelector("details.opts[open]");
+}
+function render(soft) {
+  if (soft && token && busy()) { state.dirty = true; return; }
+  state.dirty = false;
+  const app = $("#app");
+  if (!token) { app.innerHTML = loginView(); bindLogin(); return; }
+  const d = state.data;
+  const pend = pendingReels();
+  const upd = d ? utc(d.generated_at) : null;
+  app.innerHTML = `
+  <header class="top"><div class="top-in">
+    <img src="icon-192.png" alt="">
+    <div class="grow"><h1>What if? לוח בקרה</h1>
+      <div class="sub">${state.loading ? "טוען…" : upd ? "נתונים עודכנו " + ago(upd) : state.noData ? "עדיין אין נתונים" : ""}</div></div>
+    <button class="icon-btn" id="refresh" aria-label="רענון">${state.loading ? '<span class="spin"></span>' : "↻"}</button>
+  </div></header>
+  <main>
+    ${state.error ? `<div class="card error" style="margin-top:12px"><b>משהו לא עבד:</b> ${esc(state.error)}</div>` : ""}
+    ${runningView()}
+    ${state.noData ? noDataView() : ""}
+    ${pendingView(pend)}
+    ${d ? queueView(d) : ""}
+    ${d ? numbersView(d) : ""}
+    ${d ? nextView(d) : ""}
+    ${d ? publishedView(d) : ""}
+    ${controlsView()}
+    <footer><button class="btn-ghost small" id="logout">התנתקות מהטלפון הזה</button></footer>
+  </main>`;
+  bindMain();
+}
+
+function loginView() {
+  return `<main><div class="login card stack">
+    <div class="row"><img src="icon-192.png" alt="" width="48" height="48" style="border-radius:12px"><h1 style="font-size:20px;margin:0">What if? לוח בקרה</h1></div>
+    <p style="margin:0">כדי לראות את הנתונים ולאשר סרטונים, הדף צריך את <b>קוד הגישה</b> שיצרת ב-GitHub. מזינים אותו פעם אחת, והוא נשמר רק בטלפון הזה.</p>
+    <label class="f">קוד גישה (מתחיל ב-github_pat_)
+      <input id="tok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" dir="ltr"></label>
+    <button class="btn-primary" id="save">כניסה</button>
+    <div id="loginErr" class="small" style="color:var(--bad)">${esc(state.loginError || "")}</div>
+    <details><summary class="muted small">איך יוצרים קוד כזה?</summary>
+      <ol>
+        <li>פותחים <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">את הדף הזה ב-GitHub</a>.</li>
+        <li>Token name: <span dir="ltr">dashboard</span>. Expiration: שנה.</li>
+        <li>Repository access: <b>Only select repositories</b> ובוחרים <span dir="ltr">what_if_question</span>.</li>
+        <li>Permissions: <b>Actions</b> = Read and write, <b>Contents</b> = Read-only.</li>
+        <li>Generate token, מעתיקים ומדביקים כאן.</li>
+      </ol></details>
+  </div></main>`;
+}
+function bindLogin() {
+  $("#save").onclick = async () => {
+    const v = $("#tok").value.trim();
+    if (!v) return;
+    token = v;
+    const btn = $("#save"); btn.disabled = true; btn.innerHTML = '<span class="spin"></span>';
+    try {
+      const r = await fetch(API, { headers: { Authorization: "Bearer " + v, Accept: "application/vnd.github+json" } });
+      if (!r.ok) throw new Error(r.status === 401 ? "הקוד לא נכון." : r.status === 404 ? "לקוד אין גישה ל-what_if_question. בחרו אותו ב-Repository access." : "GitHub החזיר " + r.status);
+      store.set(TOKEN_KEY, v); state.loginError = null; render(); load();
+    } catch (e) { token = null; state.loginError = e.message; render(); }
+  };
+}
+function logout(msg) {
+  store.del(TOKEN_KEY); token = null; state = { ...state, data: null, loginError: msg || null };
+  for (const u of blobs.values()) URL.revokeObjectURL(u);
+  blobs.clear(); render();
+}
+
+function runningView() {
+  const r = running();
+  if (!r.length) return "";
+  return `<div class="stack" style="margin-top:12px">${r.map((x) => `<a class="banner" href="${esc(x.html_url)}" target="_blank" rel="noopener">
+    <span class="dot"></span><span>${esc(WORKFLOW_HE[x.name] || x.name)} (${x.status === "queued" ? "בתור" : "התחיל " + ago(new Date(x.run_started_at || x.created_at))})</span></a>`).join("")}</div>`;
+}
+
+function noDataView() {
+  return `<section class="card stack"><b>עוד אין נתונים ללוח.</b>
+    <span class="muted small">צריך להריץ פעם אחת את "Update dashboard". אחרי זה הבוט מעדכן לבד.</span>
+    <button class="btn-primary" data-run="dashboard.yml">הרץ עכשיו</button></section>`;
+}
+
+function pendingView(list) {
+  return `<section><h2>מחכים לאישור ${list.length ? `<span class="count">${list.length}</span>` : ""}</h2>
+  ${list.length ? `<div class="stack">${list.map(pendingCard).join("")}</div>`
+    : `<div class="card empty">אין סרטונים שמחכים. הבוט מכין סרטון חדש פעמיים ביום (17:00 ו-23:00), או שאפשר ללחוץ "סרטון חדש עכשיו" למטה.</div>`}
+  </section>`;
+}
+function pendingCard(r) {
+  const n = r.number;
+  const chips = [r.category && CATEGORY_HE[r.category], r.seconds && Math.round(r.seconds) + " שניות", r.made_at && "נוצר " + ago(utc(r.made_at))].filter(Boolean);
+  const thumb = r.preview
+    ? `<div class="thumb" data-preview="${esc(r.preview)}" ${r.cover ? `data-cover="${esc(r.cover)}"` : ""}><button class="play" aria-label="נגן">▶</button></div>`
+    : `<div class="thumb"><div class="noprev">אין תצוגה מקדימה<br><a href="${esc(r.fromRun?.html_url || `https://github.com/${REPO}/actions/workflows/make-reel.yml`)}" target="_blank" rel="noopener">לצפייה ב-GitHub</a></div></div>`;
+  return `<div class="card reel" data-key="${esc(r.key)}">
+    ${thumb}
+    <div style="min-width:0">
+      <h3>${esc(r.title)}</h3>
+      <div class="chips">${chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("")}<span class="chip">#${n}</span></div>
+      ${r.caption ? `<p class="caption" data-cap>${esc(r.caption)}</p>` : ""}
+      ${r.sent ? `<p class="sent">✓ ${SENT_HE[r.sent.what] || "נשלח"} ${ago(new Date(r.sent.at))}. זה יתעדכן כאן בעוד כמה דקות.</p>` : `
+      <div class="actions">
+        <button class="btn-primary" data-approve="${n}">✓ אשר</button>
+        <button class="btn-danger" data-reject="${n}">דחה</button>
+      </div>
+      <details class="opts"><summary>אפשרויות פרסום</summary>
+        <div class="opts-grid">
+          <label class="f">איפה<select data-platforms="${n}">
+            <option value="everywhere">בכל מקום</option><option value="instagram">רק אינסטגרם</option><option value="youtube">רק יוטיוב</option>
+            <option value="facebook">רק פייסבוק</option><option value="tiktok">רק טיקטוק</option></select></label>
+          <label class="f">פתיחה<select data-variant="${n}"><option value="B">B (רגילה)</option><option value="A">A</option></select></label>
+        </div>
+        <button class="btn-ghost small" style="margin-top:8px;width:100%" data-now="${n}">פרסם מיד, בלי לחכות לתור</button></details>`}
+    </div></div>`;
+}
+
+const SENT_HE = { approve: "אושר ונכנס לתור", publish: "נשלח לפרסום מיידי", reject: "נדחה", unqueue: "יוצא מהתור" };
+const WHERE_HE = { everywhere: "בכל הפלטפורמות (אינסטגרם, יוטיוב, פייסבוק, וטיוטה לטיקטוק)", instagram: "באינסטגרם", youtube: "ביוטיוב", facebook: "בפייסבוק", tiktok: "בטיקטוק (טיוטה)" };
+const PLAT_HE = Object.fromEntries(PLATFORMS.map((p) => [p.id, p.he]));
+const ilTime = (d, withDay = true) => d.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", ...(withDay ? { weekday: "short" } : {}), hour: "2-digit", minute: "2-digit" });
+
+/** The coming posting slots, as the "Publish queue" workflow runs them. */
+function upcomingSlots(count) {
+  const sch = state.data?.schedule || { slots_utc: ["18:07", "00:07"], daily: 2 };
+  const slots = sch.slots_utc.slice(0, Math.max(1, Math.min(sch.daily, sch.slots_utc.length)));
+  const busyNow = (state.data?.publish_queue || []).some((q) => q.status === "publishing");
+  const out = [];
+  const base = new Date(); base.setUTCHours(0, 0, 0, 0);
+  for (let day = 0; out.length < count && day < 60; day++) {
+    for (const s of slots) {
+      const [h, m] = s.split(":").map(Number);
+      const t = new Date(base.getTime() + day * 86400e3 + (h * 60 + m) * 60e3);
+      if (t.getTime() > Date.now() - (busyNow ? 0 : 5 * 60e3)) out.push(t);
+    }
+  }
+  return out.sort((a, b) => a - b).slice(0, count);
+}
+function nextSlotText() {
+  const queued = (state.data?.publish_queue || []).filter((q) => q.status === "queued").length;
+  const t = upcomingSlots(queued + 1)[queued];
+  return t ? ilTime(t) : "המועד הבא";
+}
+
+function queueView(d) {
+  const q = (d.publish_queue || []).slice().sort((a, b) => (a.status === "publishing" ? -1 : b.status === "publishing" ? 1 : 0) || a.order - b.order);
+  const queued = q.filter((x) => x.status === "queued");
+  const slots = upcomingSlots(queued.length);
+  const sch = d.schedule || {};
+  const head = `<h2>תור לפרסום ${queued.length ? `<span class="count">${queued.length}</span>` : ""}</h2>`;
+  const how = `<div class="small muted" style="margin-top:10px">סרטון אחד בכל מועד, עד ${sch.daily || 2} ביום. המועדים: ${(sch.slots_utc || []).slice(0, sch.daily || 2).map((s) => { const [h, m] = s.split(":").map(Number); const t = new Date(); t.setUTCHours(h, m, 0, 0); return ilTime(t, false); }).join(" ו-")} (שעון ישראל). הפלטפורמות מתפרסמות אחת אחרי השנייה, כ-${sch.stagger_min || 20} דקות ביניהן.</div>`;
+  if (!q.length) return `<section>${head}<div class="card empty">התור ריק. סרטון שתאשר ייכנס לכאן ויתפרסם במועד הפנוי הבא.${how}</div></section>`;
+  return `<section>${head}<div class="card">${q.map((x) => {
+    let line, buttons = "";
+    if (x.status === "publishing") {
+      line = `<span class="sent">מתפרסם עכשיו:</span> ` + x.platforms.map((p) => `${PLAT_HE[p]} ${x.posted.includes(p) ? "✓" : "⏳"}`).join(" · ");
+    } else if (x.status === "queued") {
+      const t = slots[x.position - 1];
+      line = `מקום ${x.position} בתור · ${t ? "יתפרסם בערך " + ilTime(t) : ""}`;
+      buttons = `<div class="row" style="margin-top:8px"><button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>`;
+    } else if (x.status === "done") {
+      line = x.posted.length ? "פורסם ✓ " + x.posted.map((p) => PLAT_HE[p]).join(", ") : "לא פורסם";
+    } else line = "הוצא מהתור";
+    const sent = sentMap()["reel-" + x.number];
+    if (sent && Date.now() - sent.at < 3 * 60e3) buttons = `<p class="sent small">✓ ${SENT_HE[sent.what] || "נשלח"}</p>`;
+    return `<div class="pub"><div class="t">${esc(x.title)} <span class="chip">#${x.number}</span></div>
+      <div class="small muted">${line}</div>
+      ${x.error ? `<div class="small" style="color:var(--bad);white-space:pre-line">${esc(x.error)}</div>` : ""}${buttons}</div>`;
+  }).join("")}${how}</div></section>`;
+}
+
+function numbersView(d) {
+  const t = d.totals || {};
+  const followers = PLATFORMS.reduce((a, p) => a + (d.platforms?.[p.id]?.followers || 0), 0);
+  const hasFollowers = PLATFORMS.some((p) => d.platforms?.[p.id]?.followers != null);
+  const published = (d.reels || []).filter((r) => r.status === "published").length;
+  const rows = PLATFORMS.map((p) => {
+    const x = d.platforms?.[p.id] || {};
+    const tt = x.totals || {};
+    return `<tr><td><span class="pl"><span class="sw" style="background:${p.color}"></span>${p.he}</span></td>
+      <td class="n">${fmt(x.posts || 0)}</td><td class="n">${short(tt.views)}</td><td class="n">${short(tt.likes)}</td><td class="n">${short(tt.comments)}</td><td class="n">${short(x.followers)}</td></tr>`;
+  }).join("");
+  return `<section><h2>המספרים</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${short(t.views ?? 0)}</div><div class="l">צפיות</div></div>
+      <div class="kpi"><div class="v">${short(t.likes ?? 0)}</div><div class="l">לייקים</div></div>
+      <div class="kpi"><div class="v">${hasFollowers ? short(followers) : "–"}</div><div class="l">עוקבים</div></div>
+      <div class="kpi"><div class="v">${fmt(published)}</div><div class="l">סרטונים שפורסמו</div></div>
+    </div>
+    <div class="card" style="margin-top:12px;overflow-x:auto"><table>
+      <thead><tr><th></th><th class="n">סרטונים</th><th class="n">צפיות</th><th class="n">לייקים</th><th class="n">תגובות</th><th class="n">עוקבים</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="small muted" style="margin-top:8px">טיקטוק לא שולח מספרים עד שהאפליקציה תאושר. ${d.platforms?.tiktok?.drafts ? `${d.platforms.tiktok.drafts} סרטונים נשלחו כטיוטה לטיקטוק.` : ""}</div>
+    </div>
+    ${chartCard("צפיות לאורך זמן", "views_daily", d)}
+    ${chartCard("עוקבים לאורך זמן", "followers_daily", d)}
+  </section>`;
+}
+
+function chartCard(title, field, d) {
+  const series = PLATFORMS.filter((p) => p.id !== "tiktok").map((p) => ({ ...p, pts: d.platforms?.[p.id]?.[field] || [] })).filter((s) => s.pts.length);
+  const dates = [...new Set(series.flatMap((s) => s.pts.map((p) => p.date)))].sort();
+  if (dates.length < 2) return `<div class="card" style="margin-top:12px"><b class="small">${title}</b><div class="empty">הגרף יופיע אחרי יומיים של נתונים.</div></div>`;
+  const W = 340, H = 170, L = 4, R = 40, T = 10, B = 22;
+  const max = Math.max(1, ...series.flatMap((s) => s.pts.map((p) => p.v)));
+  const nice = niceMax(max);
+  const x = (i) => L + (dates.length === 1 ? 0 : (i / (dates.length - 1)) * (W - L - R));
+  const y = (v) => T + (1 - v / nice) * (H - T - B);
+  const grid = [0, .5, 1].map((f) => `<line x1="${L}" x2="${W - R}" y1="${y(nice * f)}" y2="${y(nice * f)}" stroke="var(--line)" stroke-width="1"/>
+    <text x="${W - R + 6}" y="${y(nice * f) + 4}" font-size="12" fill="var(--muted)" text-anchor="start">${short(nice * f)}</text>`).join("");
+  const lab = [0, dates.length - 1].map((i) => `<text x="${x(i)}" y="${H - 6}" font-size="12" fill="var(--muted)" text-anchor="${i ? "end" : "start"}">${dates[i].slice(8, 10)}/${dates[i].slice(5, 7)}</text>`).join("");
+  const lines = series.map((s) => {
+    const pts = s.pts.map((p) => [x(dates.indexOf(p.date)), y(p.v)]);
+    const last = pts[pts.length - 1];
+    return `<polyline fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${pts.map((p) => p.join(",")).join(" ")}"/>
+      <circle cx="${last[0]}" cy="${last[1]}" r="4" fill="${s.color}" stroke="var(--card)" stroke-width="2"/>`;
+  }).join("");
+  const id = "c" + field;
+  chartData[id] = { dates, series, x, y, W };
+  return `<div class="card" style="margin-top:12px"><b class="small">${title}</b>
+    <div class="legend">${series.map((s) => `<span class="pl"><span class="sw" style="background:${s.color}"></span>${s.he}</span>`).join("")}</div>
+    <div class="chart-wrap" data-chart="${id}"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${grid}${lab}${lines}
+      <line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="var(--muted)" stroke-width="1" opacity="0"/>
+      <rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg><div class="tip"></div></div></div>`;
+}
+const chartData = {};
+function niceMax(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); return [1, 2, 5, 10].map((m) => m * p).find((m) => m >= v); }
+function bindChart(el) {
+  const c = chartData[el.dataset.chart]; if (!c) return;
+  const svg = $("svg", el), tip = $(".tip", el), xh = $(".xh", el);
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left) / r.width * c.W;
+    let best = 0; c.dates.forEach((_, i) => { if (Math.abs(c.x(i) - px) < Math.abs(c.x(best) - px)) best = i; });
+    const date = c.dates[best];
+    xh.setAttribute("x1", c.x(best)); xh.setAttribute("x2", c.x(best)); xh.setAttribute("opacity", ".6");
+    tip.innerHTML = `${date.slice(8, 10)}/${date.slice(5, 7)}<br>` + c.series.map((s) => { const p = s.pts.find((q) => q.date === date); return p ? `${s.he}: ${fmt(p.v)}` : ""; }).filter(Boolean).join("<br>");
+    tip.style.left = (c.x(best) / c.W * r.width) + "px"; tip.style.top = "30px"; tip.classList.add("on");
+  };
+  const out = () => { tip.classList.remove("on"); xh.setAttribute("opacity", "0"); };
+  svg.addEventListener("pointermove", move); svg.addEventListener("touchmove", move, { passive: true });
+  svg.addEventListener("pointerleave", out); svg.addEventListener("touchend", () => setTimeout(out, 1500));
+}
+
+function nextView(d) {
+  return `<section><h2>מה לעשות הלאה</h2><div class="card stack">
+    ${(d.insights || []).length ? `<ul class="tips">${d.insights.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+    ${(d.queue || []).length ? `<div><b class="small">הנושאים הבאים בתור:</b><ol class="queue">${d.queue.map((q) => `<li>${esc(q)}</li>`).join("")}</ol></div>` : ""}
+    <div class="stack"><label class="f">סרטון חדש עכשיו (אפשר לכתוב נושא, או להשאיר ריק לנושא הבא בתור)
+      <input id="topic" type="text" dir="ltr" placeholder="What if ...?"></label>
+      <button class="btn-primary" data-make>צור סרטון חדש עכשיו</button>
+      <span class="small muted">לוקח בערך 15 עד 25 דקות. הסרטון יופיע למעלה ב"מחכים לאישור", ושום דבר לא מתפרסם בלי האישור שלך.</span></div>
+  </div></section>`;
+}
+
+function publishedView(d) {
+  const list = (d.reels || []).filter((r) => r.status === "published");
+  if (!list.length) return "";
+  return `<section><h2>סרטונים שפורסמו</h2><div class="card">${list.map((r) => {
+    const t = r.totals || {};
+    const plats = PLATFORMS.filter((p) => r.posts?.[p.id]).map((p) => {
+      const x = r.posts[p.id]; const n = x.numbers || {};
+      const label = x.status === "draft" ? "טיוטה" : x.status === "private" ? "פרטי" : x.status === "unlisted" ? "לא רשום" : n.views != null ? short(n.views) + " צפיות" : "פורסם";
+      const tag = x.url ? "a" : "span";
+      return `<${tag} class="plat" ${x.url ? `href="${esc(x.url)}" target="_blank" rel="noopener"` : ""}><span class="sw" style="background:${p.color}"></span>${p.he}<span class="num">${esc(label)}</span></${tag}>`;
+    }).join("");
+    const first = Object.values(r.posts || {}).map((x) => x.posted_at).sort()[0];
+    return `<div class="pub"><div class="t">${esc(r.title)}</div>
+      <div class="small muted">${first ? "פורסם " + when(utc(first)) : ""} · ${short(t.views ?? 0)} צפיות · ${short(t.likes ?? 0)} לייקים · ${short(t.comments ?? 0)} תגובות${t.shares != null ? " · " + short(t.shares) + " שיתופים" : ""}</div>
+      <div class="plats">${plats}</div></div>`;
+  }).join("")}</div></section>`;
+}
+
+function controlsView() {
+  return `<section><h2>פעולות</h2><div class="card stack">
+    <button data-run="stats.yml">רענן מספרים מכל הפלטפורמות עכשיו</button>
+    <a class="btn" href="https://github.com/${REPO}/actions" target="_blank" rel="noopener">פתח את הבוט ב-GitHub</a>
+    <span class="small muted">המספרים מתעדכנים לבד כל 4 שעות. סרטונים חדשים נוצרים לבד פעמיים ביום.</span>
+  </div></section>`;
+}
+
+// ---- actions ------------------------------------------------------------------------------
+function bindMain() {
+  $("#refresh").onclick = () => load(true);
+  $("#logout").onclick = () => confirmSheet("להתנתק מהטלפון הזה?", "הקוד יימחק מהטלפון. כדי להיכנס שוב תצטרך להדביק אותו מחדש.", "התנתק", () => logout());
+  document.querySelectorAll("[data-chart]").forEach(bindChart);
+  document.querySelectorAll("[data-cap]").forEach((el) => (el.onclick = () => el.classList.toggle("open")));
+  document.querySelectorAll(".thumb[data-preview]").forEach(async (el) => {
+    if (el.dataset.cover) fileBlob(el.dataset.cover, "image/jpeg").then((u) => { if (!$("video", el)) el.insertAdjacentHTML("afterbegin", `<img src="${u}" alt="">`); }).catch(() => {});
+    $(".play", el).onclick = async () => {
+      const b = $(".play", el); b.innerHTML = '<span class="spin"></span>';
+      try {
+        const u = await fileBlob(el.dataset.preview, "video/mp4");
+        el.innerHTML = `<video src="${u}" controls playsinline autoplay></video>`;
+      } catch (e) { b.textContent = "!"; toast("לא הצלחתי לטעון את הסרטון: " + e.message); }
+    };
+  });
+  const choice = (n) => ({ platforms: $(`[data-platforms="${n}"]`)?.value || "everywhere", variant: $(`[data-variant="${n}"]`)?.value || "B" });
+  document.querySelectorAll("[data-approve]").forEach((b) => (b.onclick = () => {
+    const n = b.dataset.approve;
+    const { platforms, variant } = choice(n);
+    confirmSheet("לאשר את הסרטון?", `סרטון #${n} ייכנס לתור ויתפרסם ${WHERE_HE[platforms]} במועד הפנוי הבא (${nextSlotText()}). אפשר להוציא אותו מהתור עד אז.`, "כן, לתור", async () => {
+      await dispatch("review-reel.yml", { reel: String(n), decision: "approve", platforms, variant });
+      markSent("reel-" + n, "approve");
+      toast("אושר ונכנס לתור. הוא יופיע ברשימת התור בעוד דקה.");
+      setTimeout(() => load(true), 60000);
+      render();
+    });
+  }));
+  document.querySelectorAll("[data-now]").forEach((b) => (b.onclick = () => {
+    const n = b.dataset.now;
+    const q = (state.data?.publish_queue || []).find((x) => x.number == n);
+    const { platforms, variant } = q ? { platforms: q.platforms.length === 4 ? "everywhere" : q.platforms[0], variant: q.variant } : choice(n);
+    confirmSheet("לפרסם עכשיו?", `סרטון #${n} יפורסם ${WHERE_HE[platforms]} עכשיו, בכל הפלטפורמות כמעט באותו זמן (בלי המרווחים של התור). זה פומבי.`, "כן, פרסם עכשיו", async () => {
+      await dispatch("publish.yml", { reel: String(n), platforms, variant });
+      markSent("reel-" + n, "publish");
+      toast("נשלח! הבוט מפרסם עכשיו. בעוד כמה דקות הקישורים יופיעו כאן.");
+      setTimeout(() => load(false), 4000);
+      render();
+    });
+  }));
+  document.querySelectorAll("[data-unqueue]").forEach((b) => (b.onclick = () => {
+    const n = b.dataset.unqueue;
+    confirmSheet("להוציא מהתור?", `סרטון #${n} יחזור לרשימת "מחכים לאישור" ולא יתפרסם.`, "הוצא מהתור", async () => {
+      await dispatch("review-reel.yml", { reel: String(n), decision: "unqueue" });
+      markSent("reel-" + n, "unqueue");
+      toast("יוצא מהתור. זה יתעדכן בעוד דקה.");
+      setTimeout(() => load(true), 60000);
+      render();
+    });
+  }));
+  document.querySelectorAll("[data-reject]").forEach((b) => (b.onclick = () => {
+    const n = b.dataset.reject;
+    confirmSheet("לדחות את הסרטון?", `סרטון #${n} לא יפורסם ויוסר מהרשימה. אפשר לכתוב למה (לא חובה):`, "דחה", async (note) => {
+      await dispatch("review-reel.yml", { reel: String(n), decision: "reject", note: note || "" });
+      markSent("reel-" + n, "reject");
+      toast("נדחה. הוא לא יוצע שוב.");
+      render();
+    }, true);
+  }));
+  document.querySelectorAll("[data-run]").forEach((b) => (b.onclick = async () => {
+    b.disabled = true;
+    try { await dispatch(b.dataset.run, {}); toast("התחיל. התוצאה תופיע כאן בעוד דקה או שתיים."); setTimeout(() => load(false), 4000); }
+    catch (e) { toast(e.message, 6000); } finally { b.disabled = false; }
+  }));
+  const mk = $("[data-make]");
+  if (mk) mk.onclick = () => {
+    const topic = $("#topic").value.trim();
+    confirmSheet("ליצור סרטון חדש?", topic ? `נושא: ${topic}` : "הבוט ייקח את הנושא הבא בתור.", "צור", async () => {
+      await dispatch("make-reel.yml", topic ? { topic } : {});
+      toast("הבוט התחיל להכין סרטון. זה לוקח בערך 20 דקות.");
+      $("#topic").value = "";
+      setTimeout(() => load(false), 4000);
+    });
+  };
+}
+
+function confirmSheet(title, text, okLabel, onOk, withNote) {
+  const bg = $("#sheet"), body = $("#sheetBody");
+  body.innerHTML = `<h3>${esc(title)}</h3><div class="muted">${esc(text)}</div>
+    ${withNote ? `<textarea id="note" rows="2" style="margin-top:10px" placeholder="למשל: הנושא משעמם, הקול מהיר מדי"></textarea>` : ""}
+    <div class="row"><button class="btn-ghost" id="no">ביטול</button><button class="btn-primary" id="yes">${esc(okLabel)}</button></div>`;
+  bg.classList.add("on");
+  const close = () => bg.classList.remove("on");
+  $("#no").onclick = close;
+  bg.onclick = (e) => { if (e.target === bg) close(); };
+  $("#yes").onclick = async () => {
+    const y = $("#yes"); y.disabled = true; y.innerHTML = '<span class="spin"></span>';
+    try { await onOk(withNote ? $("#note").value.trim() : undefined); close(); }
+    catch (e) { close(); toast(e.message, 7000); }
+  };
+}
+
+// ---- start --------------------------------------------------------------------------------
+render();
+if (token) load(true);
+setInterval(() => {
+  if (!token || document.visibilityState !== "visible") return;
+  if (state.dirty && !busy()) render();
+  load(Date.now() - state.lastLoad > 5 * 60e3, true);
+}, 60e3);
+document.addEventListener("visibilitychange", () => { if (token && document.visibilityState === "visible" && Date.now() - state.lastLoad > 30e3) load(true); });
+</script>
+</body>
+</html>
