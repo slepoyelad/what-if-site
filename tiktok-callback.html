@@ -1,0 +1,9 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TikTok login</title><style>body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px;line-height:1.6;background:#0d0b1f;color:#eee}code{display:block;word-break:break-all;background:#221d47;padding:12px;border-radius:8px}button{margin-top:12px;padding:10px 18px;font-size:16px}</style></head>
+<body><h1>TikTok login</h1><p id="msg">Copy this code into the "TikTok login" workflow on GitHub:</p><code id="code"></code><button id="copy">Copy</button>
+<script>
+const q = new URLSearchParams(location.search);
+const code = q.get("code");
+document.getElementById("code").textContent = code || ("No code. " + (q.get("error_description") || q.get("error") || ""));
+document.getElementById("copy").onclick = () => navigator.clipboard.writeText(code || "");
+</script></body></html>
