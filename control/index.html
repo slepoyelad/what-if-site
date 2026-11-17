@@ -173,6 +173,8 @@ ul.tips { margin: 0; padding-inline-start: 20px; }
 ul.tips li + li { margin-top: 6px; }
 ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-align: left; }
 .queue li { padding: 2px 0; }
+.fmt { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; margin-inline-start: 4px; direction: rtl; background: rgba(140,120,255,.18); color: #b9a8ff; }
+.fmt.catch { background: rgba(255,170,60,.18); color: #ffbe6b; }
 
 /* modal */
 .sheet-bg { position: fixed; inset: 0; background: rgba(5, 3, 15, .55); z-index: 20; display: none; align-items: flex-end; justify-content: center; }
@@ -637,7 +639,7 @@ function bindChart(el) {
 function nextView(d) {
   return `<section><h2>מה לעשות הלאה</h2><div class="card stack">
     ${(d.insights || []).length ? `<ul class="tips">${d.insights.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
-    ${(d.queue || []).length ? `<div><b class="small">הנושאים הבאים בתור:</b><ol class="queue">${d.queue.map((q) => `<li>${esc(q)}</li>`).join("")}</ol></div>` : ""}
+    ${(d.queue || []).length ? `<div><b class="small">הנושאים הבאים בתור:</b><ol class="queue">${d.queue.map((q) => { const t = typeof q === "string" ? q : q.title; const f = typeof q === "string" ? (/\bbut\b/i.test(q) ? "catch" : "classic") : q.format; return `<li>${esc(t)} <span class="fmt ${f}">${f === "catch" ? "עם קאץ׳" : "קלאסי"}</span></li>`; }).join("")}</ol></div>` : ""}
     <div class="stack"><label class="f">סרטון חדש עכשיו (אפשר לכתוב נושא, או להשאיר ריק לנושא הבא בתור)
       <input id="topic" type="text" dir="ltr" placeholder="What if ...?"></label>
       <button class="btn-primary" data-make>צור סרטון חדש עכשיו</button>
