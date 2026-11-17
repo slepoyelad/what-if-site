@@ -343,7 +343,8 @@ function pendingReels() {
     if (!known.has(key) && age <= 14) list.push({ key, number: run.run_number, title: `סרטון מס' ${run.run_number}`, made_at: run.updated_at || run.created_at, status: "pending", fromRun: run, posts: {} });
   }
   const sent = sentMap();
-  return list.map((r) => ({ ...r, sent: sent[r.key] && Date.now() - sent[r.key].at < 6 * 3600e3 ? sent[r.key] : null }))
+  // A reel you just decided on leaves this list right away (see History for all reels).
+  return list.filter((r) => !(sent[r.key] && Date.now() - sent[r.key].at < 6 * 3600e3))
     .sort((a, b) => (b.number || 0) - (a.number || 0));
 }
 const running = () => state.runs.filter((r) => ["in_progress", "queued", "waiting", "pending", "requested"].includes(r.status));
@@ -368,6 +369,7 @@ function render(soft) {
     <img src="icon-192.png" alt="">
     <div class="grow"><h1>What if? לוח בקרה</h1>
       <div class="sub">${state.loading ? "טוען…" : upd ? "נתונים עודכנו " + ago(upd) : state.noData ? "עדיין אין נתונים" : ""}</div></div>
+    <button class="small" id="history" style="padding:8px 12px;min-height:40px">היסטוריה</button>
     <button class="icon-btn" id="refresh" aria-label="רענון">${state.loading ? '<span class="spin"></span>' : "↻"}</button>
   </div></header>
   <main>
@@ -672,6 +674,7 @@ function controlsView() {
 // ---- actions ------------------------------------------------------------------------------
 function bindMain() {
   $("#refresh").onclick = () => load(true);
+  $("#history").onclick = openHistory;
   $("#logout").onclick = () => confirmSheet("להתנתק מהטלפון הזה?", "הקוד יימחק מהטלפון. כדי להיכנס שוב תצטרך להדביק אותו מחדש.", "התנתק", () => logout());
   document.querySelectorAll("[data-chart]").forEach(bindChart);
   document.querySelectorAll("[data-cap]").forEach((el) => (el.onclick = () => el.classList.toggle("open")));
@@ -743,6 +746,36 @@ function bindMain() {
       setTimeout(() => load(false), 4000);
     });
   };
+}
+
+const STATUS_HE = {
+  pending: ["מחכה לאישור", "var(--warn)"], queued: ["בתור לפרסום", "var(--accent)"], published: ["פורסם", "var(--good)"],
+  rejected: ["נדחה", "var(--bad)"], expired: ["לא פורסם (פג תוקף)", "var(--muted)"],
+};
+function openHistory() {
+  const d = state.data || {};
+  const sent = sentMap();
+  const list = (d.reels || []).slice().sort((a, b) => (b.number || 0) - (a.number || 0));
+  const rows = list.map((r) => {
+    let st = r.status;
+    const s = sent[r.key];
+    if (s && Date.now() - s.at < 6 * 3600e3 && st === "pending") st = s.what === "reject" ? "rejected" : "queued";
+    const [label, color] = STATUS_HE[st] || [st, "var(--muted)"];
+    const links = PLATFORMS.filter((p) => r.posts?.[p.id]?.url).map((p) => `<a href="${esc(r.posts[p.id].url)}" target="_blank" rel="noopener">${p.he}</a>`).join(" · ");
+    const when = r.made_at ? utc(r.made_at) : null;
+    return `<div class="pub"><div class="row split" style="flex-wrap:nowrap;align-items:flex-start">
+        <div style="min-width:0"><div class="t"><span class="chip">#${r.number ?? "?"}</span> ${esc(r.title)}</div>
+        <div class="small muted">${when ? ilTime(when) : ""}${r.totals?.views ? " · " + short(r.totals.views) + " צפיות" : ""}${r.note ? " · " + esc(r.note) : ""}</div>
+        ${links ? `<div class="small" style="margin-top:4px">${links}</div>` : ""}</div>
+        <span class="chip" style="color:${color};flex:none">${label}</span></div></div>`;
+  }).join("");
+  const bg = $("#sheet"), body = $("#sheetBody");
+  body.innerHTML = `<div class="row split"><h3 style="margin:0">היסטוריה: כל הסרטונים</h3><button class="btn-ghost" id="no">סגור</button></div>
+    <div style="max-height:70vh;overflow-y:auto;margin-top:8px">${rows || '<div class="empty">עוד אין סרטונים.</div>'}</div>`;
+  bg.classList.add("on");
+  const close = () => bg.classList.remove("on");
+  $("#no").onclick = close;
+  bg.onclick = (e) => { if (e.target === bg) close(); };
 }
 
 function confirmSheet(title, text, okLabel, onOk, withNote) {
