@@ -209,7 +209,7 @@ const PLATFORMS = [
 ];
 const WORKFLOW_HE = {
   "Make a reel": "הבוט מכין סרטון חדש", "Publish a reel": "מפרסם סרטון", "Daily stats": "מושך מספרים חדשים",
-  "Reject a reel": "שומר דחייה", "Update dashboard": "מעדכן את הלוח", "TikTok login": "התחברות לטיקטוק",
+  "Review a reel": "שומר את ההחלטה שלך", "Publish queue": "מפרסם מהתור", "Update dashboard": "מעדכן את הלוח", "TikTok login": "התחברות לטיקטוק",
 };
 const CATEGORY_HE = {
   science_space: "מדע וחלל", money: "כסף", tech_wrong_time: "טכנולוגיה", superpowers_fantasy: "כוחות על",
@@ -357,6 +357,7 @@ function render(soft) {
     ${runningView()}
     ${state.noData ? noDataView() : ""}
     ${pendingView(pend)}
+    ${d ? queueView(d) : ""}
     ${d ? numbersView(d) : ""}
     ${d ? nextView(d) : ""}
     ${d ? publishedView(d) : ""}
@@ -434,9 +435,9 @@ function pendingCard(r) {
       <h3>${esc(r.title)}</h3>
       <div class="chips">${chips.map((c) => `<span class="chip">${esc(c)}</span>`).join("")}<span class="chip">#${n}</span></div>
       ${r.caption ? `<p class="caption" data-cap>${esc(r.caption)}</p>` : ""}
-      ${r.sent ? `<p class="sent">✓ ${r.sent.what === "reject" ? "נדחה" : "נשלח לפרסום"} ${ago(new Date(r.sent.at))}. זה יתעדכן כאן בעוד כמה דקות.</p>` : `
+      ${r.sent ? `<p class="sent">✓ ${SENT_HE[r.sent.what] || "נשלח"} ${ago(new Date(r.sent.at))}. זה יתעדכן כאן בעוד כמה דקות.</p>` : `
       <div class="actions">
-        <button class="btn-primary" data-approve="${n}">✓ אשר ופרסם</button>
+        <button class="btn-primary" data-approve="${n}">✓ אשר</button>
         <button class="btn-danger" data-reject="${n}">דחה</button>
       </div>
       <details class="opts"><summary>אפשרויות פרסום</summary>
@@ -445,8 +446,63 @@ function pendingCard(r) {
             <option value="everywhere">בכל מקום</option><option value="instagram">רק אינסטגרם</option><option value="youtube">רק יוטיוב</option>
             <option value="facebook">רק פייסבוק</option><option value="tiktok">רק טיקטוק</option></select></label>
           <label class="f">פתיחה<select data-variant="${n}"><option value="B">B (רגילה)</option><option value="A">A</option></select></label>
-        </div></details>`}
+        </div>
+        <button class="btn-ghost small" style="margin-top:8px;width:100%" data-now="${n}">פרסם מיד, בלי לחכות לתור</button></details>`}
     </div></div>`;
+}
+
+const SENT_HE = { approve: "אושר ונכנס לתור", publish: "נשלח לפרסום מיידי", reject: "נדחה", unqueue: "יוצא מהתור" };
+const WHERE_HE = { everywhere: "בכל הפלטפורמות (אינסטגרם, יוטיוב, פייסבוק, וטיוטה לטיקטוק)", instagram: "באינסטגרם", youtube: "ביוטיוב", facebook: "בפייסבוק", tiktok: "בטיקטוק (טיוטה)" };
+const PLAT_HE = Object.fromEntries(PLATFORMS.map((p) => [p.id, p.he]));
+const ilTime = (d, withDay = true) => d.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", ...(withDay ? { weekday: "short" } : {}), hour: "2-digit", minute: "2-digit" });
+
+/** The coming posting slots, as the "Publish queue" workflow runs them. */
+function upcomingSlots(count) {
+  const sch = state.data?.schedule || { slots_utc: ["18:07", "00:07"], daily: 2 };
+  const slots = sch.slots_utc.slice(0, Math.max(1, Math.min(sch.daily, sch.slots_utc.length)));
+  const busyNow = (state.data?.publish_queue || []).some((q) => q.status === "publishing");
+  const out = [];
+  const base = new Date(); base.setUTCHours(0, 0, 0, 0);
+  for (let day = 0; out.length < count && day < 60; day++) {
+    for (const s of slots) {
+      const [h, m] = s.split(":").map(Number);
+      const t = new Date(base.getTime() + day * 86400e3 + (h * 60 + m) * 60e3);
+      if (t.getTime() > Date.now() - (busyNow ? 0 : 5 * 60e3)) out.push(t);
+    }
+  }
+  return out.sort((a, b) => a - b).slice(0, count);
+}
+function nextSlotText() {
+  const queued = (state.data?.publish_queue || []).filter((q) => q.status === "queued").length;
+  const t = upcomingSlots(queued + 1)[queued];
+  return t ? ilTime(t) : "המועד הבא";
+}
+
+function queueView(d) {
+  const q = (d.publish_queue || []).slice().sort((a, b) => (a.status === "publishing" ? -1 : b.status === "publishing" ? 1 : 0) || a.order - b.order);
+  const queued = q.filter((x) => x.status === "queued");
+  const slots = upcomingSlots(queued.length);
+  const sch = d.schedule || {};
+  const head = `<h2>תור לפרסום ${queued.length ? `<span class="count">${queued.length}</span>` : ""}</h2>`;
+  const how = `<div class="small muted" style="margin-top:10px">סרטון אחד בכל מועד, עד ${sch.daily || 2} ביום. המועדים: ${(sch.slots_utc || []).slice(0, sch.daily || 2).map((s) => { const [h, m] = s.split(":").map(Number); const t = new Date(); t.setUTCHours(h, m, 0, 0); return ilTime(t, false); }).join(" ו-")} (שעון ישראל). הפלטפורמות מתפרסמות אחת אחרי השנייה, כ-${sch.stagger_min || 20} דקות ביניהן.</div>`;
+  if (!q.length) return `<section>${head}<div class="card empty">התור ריק. סרטון שתאשר ייכנס לכאן ויתפרסם במועד הפנוי הבא.${how}</div></section>`;
+  return `<section>${head}<div class="card">${q.map((x) => {
+    let line, buttons = "";
+    if (x.status === "publishing") {
+      line = `<span class="sent">מתפרסם עכשיו:</span> ` + x.platforms.map((p) => `${PLAT_HE[p]} ${x.posted.includes(p) ? "✓" : "⏳"}`).join(" · ");
+    } else if (x.status === "queued") {
+      const t = slots[x.position - 1];
+      line = `מקום ${x.position} בתור · ${t ? "יתפרסם בערך " + ilTime(t) : ""}`;
+      buttons = `<div class="row" style="margin-top:8px"><button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>`;
+    } else if (x.status === "done") {
+      line = x.posted.length ? "פורסם ✓ " + x.posted.map((p) => PLAT_HE[p]).join(", ") : "לא פורסם";
+    } else line = "הוצא מהתור";
+    const sent = sentMap()["reel-" + x.number];
+    if (sent && Date.now() - sent.at < 3 * 60e3) buttons = `<p class="sent small">✓ ${SENT_HE[sent.what] || "נשלח"}</p>`;
+    return `<div class="pub"><div class="t">${esc(x.title)} <span class="chip">#${x.number}</span></div>
+      <div class="small muted">${line}</div>
+      ${x.error ? `<div class="small" style="color:var(--bad);white-space:pre-line">${esc(x.error)}</div>` : ""}${buttons}</div>`;
+  }).join("")}${how}</div></section>`;
 }
 
 function numbersView(d) {
@@ -575,22 +631,44 @@ function bindMain() {
       } catch (e) { b.textContent = "!"; toast("לא הצלחתי לטעון את הסרטון: " + e.message); }
     };
   });
+  const choice = (n) => ({ platforms: $(`[data-platforms="${n}"]`)?.value || "everywhere", variant: $(`[data-variant="${n}"]`)?.value || "B" });
   document.querySelectorAll("[data-approve]").forEach((b) => (b.onclick = () => {
     const n = b.dataset.approve;
-    const platforms = $(`[data-platforms="${n}"]`)?.value || "everywhere";
-    const variant = $(`[data-variant="${n}"]`)?.value || "B";
-    const where = { everywhere: "בכל הפלטפורמות (אינסטגרם, יוטיוב, פייסבוק, וטיוטה לטיקטוק)", instagram: "באינסטגרם", youtube: "ביוטיוב", facebook: "בפייסבוק", tiktok: "בטיקטוק (טיוטה)" }[platforms];
-    confirmSheet("לפרסם את הסרטון?", `סרטון #${n} יפורסם ${where}. זה פומבי ולוקח כמה דקות.`, "כן, פרסם", async () => {
+    const { platforms, variant } = choice(n);
+    confirmSheet("לאשר את הסרטון?", `סרטון #${n} ייכנס לתור ויתפרסם ${WHERE_HE[platforms]} במועד הפנוי הבא (${nextSlotText()}). אפשר להוציא אותו מהתור עד אז.`, "כן, לתור", async () => {
+      await dispatch("review-reel.yml", { reel: String(n), decision: "approve", platforms, variant });
+      markSent("reel-" + n, "approve");
+      toast("אושר ונכנס לתור. הוא יופיע ברשימת התור בעוד דקה.");
+      setTimeout(() => load(true), 60000);
+      render();
+    });
+  }));
+  document.querySelectorAll("[data-now]").forEach((b) => (b.onclick = () => {
+    const n = b.dataset.now;
+    const q = (state.data?.publish_queue || []).find((x) => x.number == n);
+    const { platforms, variant } = q ? { platforms: q.platforms.length === 4 ? "everywhere" : q.platforms[0], variant: q.variant } : choice(n);
+    confirmSheet("לפרסם עכשיו?", `סרטון #${n} יפורסם ${WHERE_HE[platforms]} עכשיו, בכל הפלטפורמות כמעט באותו זמן (בלי המרווחים של התור). זה פומבי.`, "כן, פרסם עכשיו", async () => {
       await dispatch("publish.yml", { reel: String(n), platforms, variant });
       markSent("reel-" + n, "publish");
       toast("נשלח! הבוט מפרסם עכשיו. בעוד כמה דקות הקישורים יופיעו כאן.");
       setTimeout(() => load(false), 4000);
+      render();
+    });
+  }));
+  document.querySelectorAll("[data-unqueue]").forEach((b) => (b.onclick = () => {
+    const n = b.dataset.unqueue;
+    confirmSheet("להוציא מהתור?", `סרטון #${n} יחזור לרשימת "מחכים לאישור" ולא יתפרסם.`, "הוצא מהתור", async () => {
+      await dispatch("review-reel.yml", { reel: String(n), decision: "unqueue" });
+      markSent("reel-" + n, "unqueue");
+      toast("יוצא מהתור. זה יתעדכן בעוד דקה.");
+      setTimeout(() => load(true), 60000);
+      render();
     });
   }));
   document.querySelectorAll("[data-reject]").forEach((b) => (b.onclick = () => {
     const n = b.dataset.reject;
     confirmSheet("לדחות את הסרטון?", `סרטון #${n} לא יפורסם ויוסר מהרשימה. אפשר לכתוב למה (לא חובה):`, "דחה", async (note) => {
-      await dispatch("reject-reel.yml", { reel: String(n), note: note || "" });
+      await dispatch("review-reel.yml", { reel: String(n), decision: "reject", note: note || "" });
       markSent("reel-" + n, "reject");
       toast("נדחה. הוא לא יוצע שוב.");
       render();
