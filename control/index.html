@@ -854,7 +854,9 @@ function bindMain() {
   }));
   const mk = $("[data-make]");
   if (mk) mk.onclick = () => {
-    const topic = $("#topic").value.trim();
+    // An empty field means the next topic shown in the list. It is sent by name, so the bot makes
+    // exactly the topic shown here, even if a deletion has not reached the bot yet.
+    const topic = $("#topic").value.trim() || upcoming(state.data || {})[0]?.t || "";
     confirmSheet("ליצור סרטון חדש?", topic ? `נושא: ${topic}` : "הבוט ייקח את הנושא הבא בתור.", "צור", async () => {
       await dispatch("make-reel.yml", topic ? { topic } : {});
       toast("הבוט התחיל להכין סרטון. זה לוקח בערך 20 דקות.");
@@ -914,7 +916,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-003516";
+const BUILD = "2026-11-18-003742";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
