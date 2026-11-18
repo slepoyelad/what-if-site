@@ -172,6 +172,11 @@ td.n, th.n { text-align: left; }
 .pub { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .pub:last-child { border-bottom: 0; padding-bottom: 2px; }
 .pub:first-child { padding-top: 2px; }
+.pub.moved { background: color-mix(in srgb, #8B5CF6 12%, transparent); border-radius: 10px; padding-inline: 8px; }
+.mv { display: inline-flex; gap: 6px; }
+.mv button { width: 44px; height: 38px; padding: 0; font-size: 17px; line-height: 1; }
+.mv button:disabled { opacity: 0.25; }
+.qsave { position: sticky; bottom: 10px; margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
 .pub .t { font-weight: 500; direction: ltr; text-align: right; unicode-bidi: plaintext; }
 .plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 8px; }
 .plat { display: flex; align-items: center; gap: 8px; background: var(--card-2); border-radius: 10px; padding: 7px 10px; font-size: 13px; color: var(--text); text-decoration: none; }
@@ -492,7 +497,7 @@ function runTitle(x) {
   let m;
   if ((m = t.match(/^Remake of reel (\d+)/))) return reelTitle(m[1]);
   if ((m = t.match(/^Publish reel (\d+)/))) return reelTitle(m[1]);
-  if ((m = t.match(/^(?:approve|reject|unqueue) reel (\d+)/))) return reelTitle(m[1]);
+  if ((m = t.match(/^(?:approve|reject|unqueue|reorder) reel (\d+)/))) return reelTitle(m[1]);
   if (x.name === "Make a reel") return t && t !== x.name ? t : upcoming(d)[0]?.t || "";
   if (x.name === "Publish queue") {
     const q = d.publish_queue || [];
@@ -556,7 +561,7 @@ function pendingCard(r) {
     </div></div>`;
 }
 
-const SENT_HE = { approve: "אושר ונכנס לתור", publish: "נשלח לפרסום מיידי", reject: "נדחה", unqueue: "יוצא מהתור" };
+const SENT_HE = { approve: "אושר ונכנס לתור", publish: "נשלח לפרסום מיידי", reject: "נדחה", unqueue: "יוצא מהתור", reorder: "הסדר עודכן" };
 const WHERE_HE = { everywhere: "בכל הפלטפורמות (אינסטגרם, יוטיוב, פייסבוק, וטיוטה לטיקטוק)", instagram: "באינסטגרם", youtube: "ביוטיוב", facebook: "בפייסבוק", tiktok: "בטיקטוק (טיוטה)" };
 const PLAT_HE = Object.fromEntries(PLATFORMS.map((p) => [p.id, p.he]));
 const ilTime = (d, withDay = true) => d.toLocaleString("he-IL", { timeZone: "Asia/Jerusalem", ...(withDay ? { weekday: "short" } : {}), hour: "2-digit", minute: "2-digit" });
@@ -594,9 +599,26 @@ function upcoming(d) {
     .filter((x) => !(gone[x.t] && Date.now() - gone[x.t] < 30 * 60e3));
 }
 
+/**
+ * Changing the order: the arrows move a reel on this phone right away, and "save" sends the
+ * whole new order in one go (several quick runs of the same workflow would drop all but the last).
+ * After saving, the new order is kept on this phone until the bot's data shows it (or 5 minutes).
+ */
+const QORDER_KEY = "wiq.queueOrder";
+function savedOrder() { try { const x = JSON.parse(store.get(QORDER_KEY) || "null"); return x && Date.now() - x.at < 5 * 60e3 ? x.order : null; } catch { return null; } }
+const queuedByBot = (d) => (d.publish_queue || []).filter((x) => x.status === "queued").sort((a, b) => a.order - b.order);
+function queuedInOrder(d) {
+  const queued = queuedByBot(d);
+  const want = state.qorder || savedOrder();
+  if (!want) return queued;
+  const pos = (x) => { const i = want.indexOf(x.number); return i < 0 ? 1e6 + x.order : i; };
+  return queued.slice().sort((a, b) => pos(a) - pos(b));
+}
 function queueView(d) {
-  const q = (d.publish_queue || []).slice().sort((a, b) => (a.status === "publishing" ? -1 : b.status === "publishing" ? 1 : 0) || a.order - b.order);
-  const queued = q.filter((x) => x.status === "queued");
+  const queued = queuedInOrder(d).map((x, i) => ({ ...x, position: i + 1 }));
+  const rest = (d.publish_queue || []).filter((x) => x.status !== "queued").sort((a, b) => a.order - b.order);
+  const q = [...rest.filter((x) => x.status === "publishing"), ...queued, ...rest.filter((x) => x.status !== "publishing")];
+  const original = queuedByBot(d).map((x) => x.number);
   const slots = upcomingSlots(queued.length);
   const sch = d.schedule || {};
   const now = q.find((x) => x.status === "publishing");
@@ -612,16 +634,18 @@ function queueView(d) {
     } else if (x.status === "queued") {
       const t = slots[x.position - 1];
       line = `מקום ${x.position} בתור · ${t ? "יתפרסם בערך " + ilTime(t) : ""}`;
-      buttons = `<div class="row" style="margin-top:8px"><button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>`;
+      const mv = queued.length > 1 ? `<span class="mv"><button class="btn-ghost small" data-mv="${x.number}" data-dir="-1" aria-label="הקדם" ${x.position === 1 ? "disabled" : ""}>▲</button><button class="btn-ghost small" data-mv="${x.number}" data-dir="1" aria-label="דחה" ${x.position === queued.length ? "disabled" : ""}>▼</button></span>` : "";
+      buttons = `<div class="row" style="margin-top:8px">${mv}<button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>`;
     } else if (x.status === "done") {
       line = x.posted.length ? "פורסם ✓ " + x.posted.map((p) => PLAT_HE[p]).join(", ") : "לא פורסם";
     } else line = "הוצא מהתור";
     const sent = sentMap()["reel-" + x.number];
     if (sent && Date.now() - sent.at < 3 * 60e3) buttons = `<p class="sent small">✓ ${SENT_HE[sent.what] || "נשלח"}</p>`;
-    return `<div class="pub"><div class="t">${esc(x.title)} <span class="chip">#${x.number}</span></div>
+    const moved = state.qorder && x.status === "queued" && original[x.position - 1] !== x.number;
+    return `<div class="pub${moved ? " moved" : ""}"><div class="t">${esc(x.title)} <span class="chip">#${x.number}</span></div>
       <div class="small muted">${line}</div>
       ${x.error ? `<div class="small" style="color:var(--bad);white-space:pre-line">${esc(x.error)}</div>` : ""}${buttons}</div>`;
-  }).join("")}${how}</div></details></section>`;
+  }).join("")}${state.qorder ? `<div class="qsave"><div class="small" style="margin-bottom:8px">שינית את הסדר. לשמור אותו?</div><div class="row"><button data-qsave style="flex:1">שמור סדר חדש</button><button class="btn-ghost" data-qcancel>בטל</button></div></div>` : ""}${how}</div></details></section>`;
 }
 /** The queue list opens and closes with a tap on its title; the choice is remembered on this phone. */
 function queueOpen() { return boxOpen("qbox"); }
@@ -815,6 +839,29 @@ function bindMain() {
       render();
     });
   }));
+  document.querySelectorAll("[data-mv]").forEach((b) => (b.onclick = (e) => {
+    e.stopPropagation();
+    const list = queuedInOrder(state.data || {}).map((x) => x.number);
+    const i = list.indexOf(Number(b.dataset.mv)), j = i + Number(b.dataset.dir);
+    if (i < 0 || j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    state.qorder = list.join() === queuedByBot(state.data || {}).map((x) => x.number).join() ? null : list;
+    render();
+  }));
+  document.querySelectorAll("[data-qcancel]").forEach((b) => (b.onclick = () => { state.qorder = null; store.del(QORDER_KEY); render(); }));
+  document.querySelectorAll("[data-qsave]").forEach((b) => (b.onclick = async () => {
+    const order = state.qorder;
+    if (!order) return;
+    b.disabled = true;
+    try {
+      await dispatch("review-reel.yml", { reel: String(order[0]), decision: "reorder", order: order.join(",") });
+      store.set(QORDER_KEY, JSON.stringify({ order, at: Date.now() }));
+      state.qorder = null;
+      toast("הסדר נשמר. הבוט יעדכן אותו בעוד דקה.");
+      setTimeout(() => load(true), 60000);
+    } catch (e) { b.disabled = false; toast("לא הצלחתי לשמור. נסה שוב."); }
+    render();
+  }));
   document.querySelectorAll("[data-unqueue]").forEach((b) => (b.onclick = () => {
     const n = b.dataset.unqueue;
     confirmSheet("להוציא מהתור?", `סרטון #${n} יחזור לרשימת "מחכים לאישור" ולא יתפרסם.`, "הוצא מהתור", async () => {
@@ -918,7 +965,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-010108";
+const BUILD = "2026-11-18-123804";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
