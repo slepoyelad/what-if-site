@@ -173,6 +173,7 @@ ul.tips { margin: 0; padding-inline-start: 20px; }
 ul.tips li + li { margin-top: 6px; }
 ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-align: left; }
 .queue li { padding: 2px 0; }
+.rtitle { display: block; direction: ltr; text-align: left; font-weight: 700; font-size: 15px; line-height: 1.35; margin: 2px 0 2px; padding: 8px 12px; border-radius: 12px; background: linear-gradient(90deg, rgba(124,92,255,.22), rgba(70,140,255,.14)); color: var(--text, #fff); }
 .queue li { display: list-item; }
 .queue .qt { display: inline; }
 .drop { all: unset; cursor: pointer; margin-inline-start: 8px; padding: 2px 8px; border-radius: 99px; font-size: 12px; color: var(--muted); border: 1px solid rgba(140,135,170,.35); direction: rtl; }
@@ -476,15 +477,33 @@ function progressOf(x) {
   const left = Math.max(1, Math.round(total - elapsed));
   return { pct, step: current ? STEP_HE[current.name] || "" : "", left: elapsed < total ? left : null, late: elapsed > total * 1.2 };
 }
+/** Which reel a running workflow is working on, to show its title in the progress banner. */
+function runTitle(x) {
+  const d = state.data || {};
+  const reelTitle = (n) => (d.reels || []).find((r) => r.key === "reel-" + n)?.title || (d.publish_queue || []).find((q) => q.number == n)?.title || "";
+  const t = x.display_title || "";
+  let m;
+  if ((m = t.match(/^Remake of reel (\d+)/))) return reelTitle(m[1]);
+  if ((m = t.match(/^Publish reel (\d+)/))) return reelTitle(m[1]);
+  if ((m = t.match(/^(?:approve|reject|unqueue) reel (\d+)/))) return reelTitle(m[1]);
+  if (x.name === "Make a reel") return t && t !== x.name ? t : upcoming(d)[0]?.t || "";
+  if (x.name === "Publish queue") {
+    const q = d.publish_queue || [];
+    return (q.find((r) => r.status === "publishing") || q.find((r) => r.status === "queued"))?.title || "";
+  }
+  return "";
+}
+
 function runningView() {
   const r = running();
   if (!r.length) return "";
   return `<div class="stack" style="margin-top:12px">${r.map((x) => {
     const p = progressOf(x);
     const label = esc(WORKFLOW_HE[x.name] || x.name);
-    if (!p) return `<a class="banner" href="${esc(x.html_url)}" target="_blank" rel="noopener"><span class="dot"></span><span>${label} (מחכה בתור)</span></a>`;
+    if (!p) return `<a class="banner" href="${esc(x.html_url)}" target="_blank" rel="noopener"><span class="dot"></span><span>${label} (מחכה בתור)${runTitle(x) ? `<span class="rtitle">${esc(runTitle(x))}</span>` : ""}</span></a>`;
     return `<a class="banner prog" href="${esc(x.html_url)}" target="_blank" rel="noopener">
       <div class="row split" style="width:100%"><span><span class="dot"></span> ${label}</span><b>${p.pct}%</b></div>
+      ${runTitle(x) ? `<div class="rtitle">${esc(runTitle(x))}</div>` : ""}
       <div class="bar" role="progressbar" aria-valuenow="${p.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p.pct}%"></i></div>
       <div class="small muted">${p.step ? esc(p.step) + " · " : ""}${p.left ? `נשארו בערך ${p.left} ${p.left === 1 ? "דקה" : "דקות"}` : p.late ? "לוקח קצת יותר מהרגיל" : "כמעט סיים"}</div></a>`;
   }).join("")}</div>`;
@@ -861,7 +880,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-001434";
+const BUILD = "2026-11-18-001727";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
