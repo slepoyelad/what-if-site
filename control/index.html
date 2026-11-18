@@ -147,6 +147,13 @@ select, input[type=text], input[type=password], textarea {
 .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; box-shadow: var(--shadow); }
 .kpi .v { font-size: 26px; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .kpi .l { font-size: 13px; color: var(--muted); }
+.kpi .chg { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; }
+.kpi .pill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-weight: 600; font-variant-numeric: tabular-nums; direction: ltr; }
+.kpi .pill.up { color: var(--good); background: color-mix(in srgb, var(--good) 16%, transparent); }
+.kpi .pill.down { color: var(--bad); background: color-mix(in srgb, var(--bad) 16%, transparent); }
+.kpi .pill.same { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
+.kpi .was { color: var(--muted); opacity: .8; }
+.kpisince { margin-top: 8px; font-size: 12px; color: var(--muted); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
 th { font-weight: 500; color: var(--muted); font-size: 12px; text-align: start; padding: 6px 4px; border-bottom: 1px solid var(--line); }
 td { padding: 9px 4px; border-bottom: 1px solid var(--line); }
@@ -630,6 +637,14 @@ function numbersView(d) {
   const followers = PLATFORMS.reduce((a, p) => a + (d.platforms?.[p.id]?.followers || 0), 0);
   const hasFollowers = PLATFORMS.some((p) => d.platforms?.[p.id]?.followers != null);
   const published = mergedPublished(d).length;
+  // Change since the previous refresh of the numbers (only that one earlier value is kept).
+  const prev = d.kpis_prev;
+  const chg = (k, now) => {
+    if (!prev || prev[k] == null) return "";
+    const diff = now - prev[k];
+    const pill = diff > 0 ? `<span class="pill up">▲ +${short(diff)}</span>` : diff < 0 ? `<span class="pill down">▼ −${short(-diff)}</span>` : `<span class="pill same">ללא שינוי</span>`;
+    return `<div class="chg">${pill}${diff ? `<span class="was">היה ${short(prev[k])}</span>` : ""}</div>`;
+  };
   const rows = PLATFORMS.map((p) => {
     const x = d.platforms?.[p.id] || {};
     const tt = x.totals || {};
@@ -638,11 +653,12 @@ function numbersView(d) {
   }).join("");
   return `<section><h2>המספרים</h2>
     <div class="kpis">
-      <div class="kpi"><div class="v">${short(t.views ?? 0)}</div><div class="l">צפיות</div></div>
-      <div class="kpi"><div class="v">${short(t.likes ?? 0)}</div><div class="l">לייקים</div></div>
-      <div class="kpi"><div class="v">${hasFollowers ? short(followers) : "–"}</div><div class="l">עוקבים</div></div>
-      <div class="kpi"><div class="v">${fmt(published)}</div><div class="l">סרטונים שפורסמו</div></div>
+      <div class="kpi"><div class="v">${short(t.views ?? 0)}</div><div class="l">צפיות</div>${chg("views", t.views ?? 0)}</div>
+      <div class="kpi"><div class="v">${short(t.likes ?? 0)}</div><div class="l">לייקים</div>${chg("likes", t.likes ?? 0)}</div>
+      <div class="kpi"><div class="v">${hasFollowers ? short(followers) : "–"}</div><div class="l">עוקבים</div>${hasFollowers ? chg("followers", followers) : ""}</div>
+      <div class="kpi"><div class="v">${fmt(published)}</div><div class="l">סרטונים שפורסמו</div>${chg("published", published)}</div>
     </div>
+    ${prev && d.kpis_since ? `<div class="kpisince">השינוי לעומת העדכון הקודם · המספרים השתנו לאחרונה ${when(utc(d.kpis_since))}</div>` : ""}
     <div class="card" style="margin-top:12px;overflow-x:auto"><table>
       <thead><tr><th></th><th class="n">סרטונים</th><th class="n">צפיות</th><th class="n">לייקים</th><th class="n">תגובות</th><th class="n">עוקבים</th></tr></thead>
       <tbody>${rows}</tbody></table>
@@ -898,7 +914,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-001923";
+const BUILD = "2026-11-18-003516";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
