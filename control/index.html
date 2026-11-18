@@ -629,7 +629,7 @@ function numbersView(d) {
   const t = d.totals || {};
   const followers = PLATFORMS.reduce((a, p) => a + (d.platforms?.[p.id]?.followers || 0), 0);
   const hasFollowers = PLATFORMS.some((p) => d.platforms?.[p.id]?.followers != null);
-  const published = (d.reels || []).filter((r) => r.status === "published").length;
+  const published = mergedPublished(d).length;
   const rows = PLATFORMS.map((p) => {
     const x = d.platforms?.[p.id] || {};
     const tt = x.totals || {};
@@ -711,8 +711,26 @@ function nextView(d) {
   </div></section>`;
 }
 
+// The same topic re-made or re-posted (e.g. an Instagram-only re-post) counts as one published reel.
+// Posts are merged by platform, the newer reel's post winning, and the totals are summed again.
+function mergedPublished(d) {
+  const groups = new Map();
+  const key = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  [...(d.reels || [])].filter((r) => r.status === "published").sort((a, b) => (a.number || 0) - (b.number || 0)).forEach((r) => {
+    const g = groups.get(key(r.title));
+    if (!g) { groups.set(key(r.title), { ...r, posts: { ...(r.posts || {}) } }); return; }
+    Object.assign(g.posts, r.posts || {});
+    g.number = r.number;
+  });
+  return [...groups.values()].map((g) => {
+    const totals = {};
+    Object.values(g.posts).forEach((x) => Object.entries(x.numbers || {}).forEach(([k, v]) => { if (typeof v === "number" && ["views", "likes", "comments", "shares", "saves"].includes(k)) totals[k] = (totals[k] || 0) + v; }));
+    return { ...g, totals };
+  }).sort((a, b) => (b.number || 0) - (a.number || 0));
+}
+
 function publishedView(d) {
-  const list = (d.reels || []).filter((r) => r.status === "published");
+  const list = mergedPublished(d);
   if (!list.length) return "";
   return `<section><details id="pubbox" ${boxOpen("pubbox") ? "open" : ""}><summary><h2 class="qhead"><span>סרטונים שפורסמו <span class="count">${list.length}</span></span><span class="qarrow">▾</span></h2></summary><div class="card">${list.map((r) => {
     const t = r.totals || {};
@@ -880,7 +898,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-001727";
+const BUILD = "2026-11-18-001923";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
