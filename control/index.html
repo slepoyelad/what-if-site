@@ -183,6 +183,11 @@ ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-ali
 .qhead .qnext { flex: 1; font-weight: 400; }
 .qarrow { font-size: 16px; color: var(--muted, #9a94c0); transition: transform .2s; }
 #qbox[open] .qarrow { transform: rotate(180deg); }
+.fold { margin-top: 12px; }
+.fold > summary { list-style: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.fold > summary::-webkit-details-marker { display: none; }
+.foldhead { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); font-weight: 600; font-size: 14px; }
+.fold[open] .qarrow { transform: rotate(180deg); }
 .fmt { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 99px; margin-inline-start: 4px; direction: rtl; background: rgba(140,120,255,.18); color: #b9a8ff; }
 .fmt.catch { background: rgba(255,170,60,.18); color: #ffbe6b; }
 
@@ -587,9 +592,12 @@ function queueView(d) {
   }).join("")}${how}</div></details></section>`;
 }
 /** The queue list opens and closes with a tap on its title; the choice is remembered on this phone. */
-function queueOpen() { try { return localStorage.getItem("wiq.queueOpen") === "1"; } catch { return false; } }
+function queueOpen() { return boxOpen("qbox"); }
+/** Folding sections (queue, charts) open with a tap; the choice is remembered on this phone. */
+const BOX_KEY = { qbox: "wiq.queueOpen", chartsbox: "wiq.chartsOpen" };
+function boxOpen(id) { try { return localStorage.getItem(BOX_KEY[id]) === "1"; } catch { return false; } }
 document.addEventListener("toggle", (e) => {
-  if (e.target.id === "qbox") try { localStorage.setItem("wiq.queueOpen", e.target.open ? "1" : "0"); } catch {}
+  if (BOX_KEY[e.target.id]) try { localStorage.setItem(BOX_KEY[e.target.id], e.target.open ? "1" : "0"); } catch {}
 }, true);
 
 function numbersView(d) {
@@ -615,8 +623,10 @@ function numbersView(d) {
       <tbody>${rows}</tbody></table>
       <div class="small muted" style="margin-top:8px">טיקטוק לא שולח מספרים עד שהאפליקציה תאושר. ${d.platforms?.tiktok?.drafts ? `${d.platforms.tiktok.drafts} סרטונים נשלחו כטיוטה לטיקטוק.` : ""}</div>
     </div>
+    <details id="chartsbox" class="fold" ${boxOpen("chartsbox") ? "open" : ""}><summary class="foldhead"><span>גרפים: צפיות ועוקבים לאורך זמן</span><span class="qarrow">▾</span></summary>
     ${chartCard("צפיות לאורך זמן", "views_daily", d)}
     ${chartCard("עוקבים לאורך זמן", "followers_daily", d)}
+    </details>
   </section>`;
 }
 
