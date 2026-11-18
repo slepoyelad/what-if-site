@@ -200,6 +200,11 @@ td.n, th.n { text-align: left; }
 .plat { display: flex; align-items: center; gap: 8px; background: var(--card-2); border-radius: 10px; padding: 7px 10px; font-size: 13px; color: var(--text); text-decoration: none; }
 .plat .num { margin-inline-start: auto; font-variant-numeric: tabular-nums; color: var(--text-2); }
 ul.tips { margin: 0; padding-inline-start: 20px; }
+h2.hrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.abtn { font-size: 13px; font-weight: 500; padding: 7px 14px; min-height: 36px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.atips { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; max-height: 60vh; overflow-y: auto; }
+.atip { display: flex; gap: 10px; align-items: flex-start; padding: 12px; border-radius: 14px; background: var(--card-2); line-height: 1.45; font-size: 14px; }
+.atip .ai { font-size: 20px; line-height: 1.2; flex: none; }
 ul.tips li + li { margin-top: 6px; }
 ol.queue { margin: 6px 0 0; padding-inline-start: 22px; direction: ltr; text-align: left; }
 .queue li { padding: 2px 0; }
@@ -716,7 +721,7 @@ function numbersView(d) {
     return `<tr><td><span class="pl"><span class="sw" style="background:${p.color}"></span>${p.he}</span></td>
       <td class="n">${fmt(x.posts || 0)}</td><td class="n">${short(tt.views)}</td><td class="n">${short(tt.likes)}</td><td class="n">${short(tt.comments)}</td><td class="n">${short(x.followers)}</td></tr>`;
   }).join("");
-  return `<section><h2>המספרים</h2>
+  return `<section><h2 class="hrow"><span>המספרים</span>${tipsOf(d).length ? `<button class="abtn" data-analysis>✨ ניתוח סרטונים</button>` : ""}</h2>
     <div class="kpis">
       <div class="kpi"><div class="v">${short(K.views)}</div><div class="l">צפיות</div>${chg("views", K.views)}</div>
       <div class="kpi"><div class="v">${short(K.likes)}</div><div class="l">לייקים</div>${chg("likes", K.likes)}</div>
@@ -781,9 +786,24 @@ function bindChart(el) {
   svg.addEventListener("pointerleave", out); svg.addEventListener("touchend", () => setTimeout(out, 1500));
 }
 
+/** The bot's tips about the reels, shown on demand ("ניתוח סרטונים"), not on the main page. */
+function tipsOf(d) {
+  return (d.insights || []).filter((t) => !/טיקטוק הסרטונים מגיעים כטיוטה/.test(t)); // he posts the TikTok drafts himself
+}
+const TIP_ICON = [[/אהבו|לייק/, "❤️"], [/פלטפורמ/, "📱"], [/נושא|סדרה|קטגוריה/, "🎯"], [/שעת|שעה/, "⏰"], [/החזק|הצליח/, "🏆"]];
+function analysisSheet() {
+  const tips = tipsOf(state.data || {});
+  const bg = $("#sheet"), body = $("#sheetBody");
+  body.innerHTML = `<h3>✨ ניתוח סרטונים</h3><div class="muted small">מה עובד עד עכשיו, לפי הצפיות והלייקים</div>
+    <div class="atips">${tips.map((t) => `<div class="atip"><span class="ai">${(TIP_ICON.find(([re]) => re.test(t)) || [0, "💡"])[1]}</span><span>${esc(t)}</span></div>`).join("")}</div>
+    <div class="row"><button class="btn-ghost" id="no">סגור</button></div>`;
+  bg.classList.add("on");
+  const close = () => bg.classList.remove("on");
+  $("#no").onclick = close;
+  bg.onclick = (e) => { if (e.target === bg) close(); };
+}
 function nextView(d) {
-  return `<section><h2>מה לעשות הלאה</h2><div class="card stack">
-    ${(d.insights || []).length ? `<ul class="tips">${d.insights.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+  return `<section><h2>סרטון חדש</h2><div class="card stack">
     ${upcoming(d).length ? `<div><b class="small">הנושאים הבאים בתור:</b><ol class="queue">${upcoming(d).map(({ t, f }) => `<li><span class="qt">${esc(t)} <span class="fmt ${f}">${f === "catch" ? "עם קאץ׳" : "קלאסי"}</span></span><button class="drop" data-drop="${esc(t)}" aria-label="מחק נושא">✕</button></li>`).join("")}</ol></div>` : ""}
     <div class="stack"><label class="f">סרטון חדש עכשיו (אפשר לכתוב נושא, או להשאיר ריק לנושא הבא בתור)
       <input id="topic" type="text" dir="ltr" placeholder="What if ...?"></label>
@@ -893,6 +913,7 @@ function bindMain() {
     state.qtimer = setTimeout(saveOrder, 2000);
     render();
   }));
+  document.querySelectorAll("[data-analysis]").forEach((b) => (b.onclick = analysisSheet));
   document.querySelectorAll("[data-qsel]").forEach((el) => (el.onclick = () => {
     const n = Number(el.dataset.qsel);
     state.qsel = state.qsel === n ? null : n;
@@ -1001,7 +1022,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-124233";
+const BUILD = "2026-11-18-124538";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
