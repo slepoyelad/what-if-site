@@ -623,14 +623,32 @@ function upcoming(d) {
  * After saving, the new order is kept on this phone until the bot's data shows it (or 5 minutes).
  */
 const QORDER_KEY = "wiq.queueOrder";
-function savedOrder() { try { const x = JSON.parse(store.get(QORDER_KEY) || "null"); return x && Date.now() - x.at < 5 * 60e3 ? x.order : null; } catch { return null; } }
+function savedOrder() { try { const x = JSON.parse(store.get(QORDER_KEY) || "null"); return x && Date.now() - x.at < 10 * 60e3 ? x.order : null; } catch { return null; } }
 const queuedByBot = (d) => (d.publish_queue || []).filter((x) => x.status === "queued").sort((a, b) => a.order - b.order);
 function queuedInOrder(d) {
   const queued = queuedByBot(d);
-  const want = state.qorder || savedOrder();
+  const saved = savedOrder();
+  if (saved && !state.qorder) {
+    const bot = queued.map((x) => x.number).filter((n) => saved.includes(n));
+    if (bot.join() === saved.filter((n) => bot.includes(n)).join()) store.del(QORDER_KEY); // the bot has it now
+  }
+  const want = state.qorder || saved;
   if (!want) return queued;
   const pos = (x) => { const i = want.indexOf(x.number); return i < 0 ? 1e6 + x.order : i; };
   return queued.slice().sort((a, b) => pos(a) - pos(b));
+}
+async function saveOrder() {
+  const order = state.qorder;
+  if (!order) return;
+  try {
+    await dispatch("review-reel.yml", { reel: String(order[0]), decision: "reorder", order: order.join(",") });
+    store.set(QORDER_KEY, JSON.stringify({ order, at: Date.now() }));
+    state.qorder = null;
+    state.qsaving = "done";
+    setTimeout(() => { state.qsaving = null; render(); }, 6000);
+    setTimeout(() => load(true), 60000);
+  } catch (e) { state.qsaving = "fail"; }
+  render();
 }
 function queueView(d) {
   // Only what is still ahead: the reel being posted now and the reels waiting. Published reels
@@ -665,7 +683,7 @@ function queueView(d) {
       ${open ? `<div class="qacts"><button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>` : ""}
       ${sentNote(x)}</div>`;
   }).join("");
-  const save = state.qorder ? `<div class="qsave"><div class="small" style="margin-bottom:8px">שינית את הסדר. לשמור אותו?</div><div class="row"><button data-qsave style="flex:1">שמור סדר חדש</button><button class="btn-ghost" data-qcancel>בטל</button></div></div>` : "";
+  const save = state.qsaving ? `<div class="qhow" style="color:var(--accent)">${state.qsaving === "done" ? "✓ הסדר נשמר. הבוט יפרסם לפי הסדר הזה." : state.qsaving === "fail" ? "לא הצלחתי לשמור את הסדר. נסה שוב." : "שומר את הסדר…"}</div>` : "";
   return `<section><details id="qbox" ${queueOpen() ? "open" : ""}><summary>${head}</summary><div class="card qcard">${nowRow}${rows}${save}${how}</div></details></section>`;
 }
 /** The queue list opens and closes with a tap on its title; the choice is remembered on this phone. */
@@ -866,26 +884,18 @@ function bindMain() {
     const i = list.indexOf(Number(b.dataset.mv)), j = i + Number(b.dataset.dir);
     if (i < 0 || j < 0 || j >= list.length) return;
     [list[i], list[j]] = [list[j], list[i]];
-    state.qorder = list.join() === queuedByBot(state.data || {}).map((x) => x.number).join() ? null : list;
+    // Kept on this phone at once (a refresh shows it too), and sent to the bot 2 seconds after the
+    // last tap. Each run carries the whole order, so the last one always wins.
+    state.qorder = list;
+    store.set(QORDER_KEY, JSON.stringify({ order: list, at: Date.now() }));
+    state.qsaving = "wait";
+    clearTimeout(state.qtimer);
+    state.qtimer = setTimeout(saveOrder, 2000);
     render();
   }));
   document.querySelectorAll("[data-qsel]").forEach((el) => (el.onclick = () => {
     const n = Number(el.dataset.qsel);
     state.qsel = state.qsel === n ? null : n;
-    render();
-  }));
-  document.querySelectorAll("[data-qcancel]").forEach((b) => (b.onclick = () => { state.qorder = null; store.del(QORDER_KEY); render(); }));
-  document.querySelectorAll("[data-qsave]").forEach((b) => (b.onclick = async () => {
-    const order = state.qorder;
-    if (!order) return;
-    b.disabled = true;
-    try {
-      await dispatch("review-reel.yml", { reel: String(order[0]), decision: "reorder", order: order.join(",") });
-      store.set(QORDER_KEY, JSON.stringify({ order, at: Date.now() }));
-      state.qorder = null;
-      toast("הסדר נשמר. הבוט יעדכן אותו בעוד דקה.");
-      setTimeout(() => load(true), 60000);
-    } catch (e) { b.disabled = false; toast("לא הצלחתי לשמור. נסה שוב."); }
     render();
   }));
   document.querySelectorAll("[data-unqueue]").forEach((b) => (b.onclick = () => {
@@ -991,7 +1001,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-124018";
+const BUILD = "2026-11-18-124233";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
