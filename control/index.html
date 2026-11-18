@@ -639,6 +639,8 @@ function numbersView(d) {
   const published = mergedPublished(d).length;
   // Change since the previous refresh of the numbers (only that one earlier value is kept).
   const prev = d.kpis_prev;
+  // The bot keeps the four big numbers checked (views never go down); use them when present.
+  const K = d.kpis || { views: t.views ?? 0, likes: t.likes ?? 0, followers, published };
   const chg = (k, now) => {
     if (!prev || prev[k] == null) return "";
     const diff = now - prev[k];
@@ -653,10 +655,10 @@ function numbersView(d) {
   }).join("");
   return `<section><h2>המספרים</h2>
     <div class="kpis">
-      <div class="kpi"><div class="v">${short(t.views ?? 0)}</div><div class="l">צפיות</div>${chg("views", t.views ?? 0)}</div>
-      <div class="kpi"><div class="v">${short(t.likes ?? 0)}</div><div class="l">לייקים</div>${chg("likes", t.likes ?? 0)}</div>
-      <div class="kpi"><div class="v">${hasFollowers ? short(followers) : "–"}</div><div class="l">עוקבים</div>${hasFollowers ? chg("followers", followers) : ""}</div>
-      <div class="kpi"><div class="v">${fmt(published)}</div><div class="l">סרטונים שפורסמו</div>${chg("published", published)}</div>
+      <div class="kpi"><div class="v">${short(K.views)}</div><div class="l">צפיות</div>${chg("views", K.views)}</div>
+      <div class="kpi"><div class="v">${short(K.likes)}</div><div class="l">לייקים</div>${chg("likes", K.likes)}</div>
+      <div class="kpi"><div class="v">${hasFollowers ? short(K.followers) : "–"}</div><div class="l">עוקבים</div>${hasFollowers ? chg("followers", K.followers) : ""}</div>
+      <div class="kpi"><div class="v">${fmt(K.published)}</div><div class="l">סרטונים שפורסמו</div>${chg("published", K.published)}</div>
     </div>
     ${prev && d.kpis_since ? `<div class="kpisince">השינוי לעומת העדכון הקודם · המספרים השתנו לאחרונה ${when(utc(d.kpis_since))}</div>` : ""}
     <div class="card" style="margin-top:12px;overflow-x:auto"><table>
@@ -916,7 +918,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-003742";
+const BUILD = "2026-11-18-010108";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
