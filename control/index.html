@@ -172,10 +172,28 @@ td.n, th.n { text-align: left; }
 .pub { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .pub:last-child { border-bottom: 0; padding-bottom: 2px; }
 .pub:first-child { padding-top: 2px; }
-.pub.moved { background: color-mix(in srgb, #8B5CF6 12%, transparent); border-radius: 10px; padding-inline: 8px; }
-.mv { display: inline-flex; gap: 6px; }
-.mv button { width: 44px; height: 38px; padding: 0; font-size: 17px; line-height: 1; }
-.mv button:disabled { opacity: 0.25; }
+.qcard { padding: 6px 12px 10px; }
+.qnow { margin: 6px 0 4px; padding: 12px; border-radius: 14px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.qnow-l { font-size: 12px; color: var(--accent); font-weight: 600; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.qnow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: qpulse 1.4s ease-in-out infinite; }
+@keyframes qpulse { 50% { opacity: .3; } }
+.qplat { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.qplat span { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--card); color: var(--muted); }
+.qplat span.ok { color: var(--good); }
+.qrow { border-bottom: 1px solid var(--line); }
+.qrow.moved { background: color-mix(in srgb, var(--accent) 10%, transparent); border-radius: 12px; }
+.qmain { display: flex; align-items: center; gap: 10px; padding: 10px 2px; cursor: pointer; }
+.qpos { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; background: var(--card-2); color: var(--text-2); }
+.qrow.first .qpos { background: var(--accent); color: var(--accent-ink); }
+.qbody { flex: 1; min-width: 0; }
+.qt2 { font-weight: 500; font-size: 15px; line-height: 1.3; direction: ltr; text-align: right; unicode-bidi: plaintext; }
+.qwhen { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.qerr { font-size: 12px; color: var(--bad); white-space: pre-line; padding: 0 2px 8px; }
+.qacts { display: flex; gap: 8px; padding: 0 38px 12px 2px; }
+.mv { display: inline-flex; gap: 4px; flex: none; }
+.mv button { width: 36px; height: 34px; padding: 0; font-size: 14px; line-height: 1; border-radius: 10px; }
+.mv button:disabled { opacity: 0.2; }
+.qhow { font-size: 12px; color: var(--muted); text-align: center; padding-top: 10px; }
 .qsave { position: sticky; bottom: 10px; margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
 .pub .t { font-weight: 500; direction: ltr; text-align: right; unicode-bidi: plaintext; }
 .plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; margin-top: 8px; }
@@ -615,37 +633,40 @@ function queuedInOrder(d) {
   return queued.slice().sort((a, b) => pos(a) - pos(b));
 }
 function queueView(d) {
+  // Only what is still ahead: the reel being posted now and the reels waiting. Published reels
+  // are in "פורסמו" below, and removed or replaced ones are not shown at all.
   const queued = queuedInOrder(d).map((x, i) => ({ ...x, position: i + 1 }));
-  const rest = (d.publish_queue || []).filter((x) => x.status !== "queued").sort((a, b) => a.order - b.order);
-  const q = [...rest.filter((x) => x.status === "publishing"), ...queued, ...rest.filter((x) => x.status !== "publishing")];
+  const now = (d.publish_queue || []).find((x) => x.status === "publishing");
   const original = queuedByBot(d).map((x) => x.number);
   const slots = upcomingSlots(queued.length);
   const sch = d.schedule || {};
-  const now = q.find((x) => x.status === "publishing");
-  const first = queued.find((x) => x.position === 1) || queued[0];
-  const next = now ? `מתפרסם עכשיו: #${now.number}` : first && slots[0] ? `הבא: #${first.number} ${ilTime(slots[0])}` : "";
+  const next = now ? `מתפרסם עכשיו: #${now.number}` : queued[0] && slots[0] ? `הבא ${ilTime(slots[0])}` : "";
   const head = `<h2 class="qhead"><span>תור לפרסום ${queued.length ? `<span class="count">${queued.length}</span>` : ""}</span><span class="small muted qnext">${next}</span><span class="qarrow">▾</span></h2>`;
-  const how = `<div class="small muted" style="margin-top:10px">סרטון אחד בכל מועד, עד ${sch.daily || 2} ביום. המועדים: ${(sch.slots_utc || []).slice(0, sch.daily || 2).map((s) => { const [h, m] = s.split(":").map(Number); const t = new Date(); t.setUTCHours(h, m, 0, 0); return ilTime(t, false); }).join(" ו-")} (שעון ישראל). הפלטפורמות מתפרסמות אחת אחרי השנייה, כ-${sch.stagger_min || 20} דקות ביניהן.</div>`;
-  if (!q.length) return `<section>${head}<div class="card empty">התור ריק. סרטון שתאשר ייכנס לכאן ויתפרסם במועד הפנוי הבא.${how}</div></section>`;
-  return `<section><details id="qbox" ${queueOpen() ? "open" : ""}><summary>${head}</summary><div class="card">${q.map((x) => {
-    let line, buttons = "";
-    if (x.status === "publishing") {
-      line = `<span class="sent">מתפרסם עכשיו:</span> ` + x.platforms.map((p) => `${PLAT_HE[p]} ${x.posted.includes(p) ? "✓" : "⏳"}`).join(" · ");
-    } else if (x.status === "queued") {
-      const t = slots[x.position - 1];
-      line = `מקום ${x.position} בתור · ${t ? "יתפרסם בערך " + ilTime(t) : ""}`;
-      const mv = queued.length > 1 ? `<span class="mv"><button class="btn-ghost small" data-mv="${x.number}" data-dir="-1" aria-label="הקדם" ${x.position === 1 ? "disabled" : ""}>▲</button><button class="btn-ghost small" data-mv="${x.number}" data-dir="1" aria-label="דחה" ${x.position === queued.length ? "disabled" : ""}>▼</button></span>` : "";
-      buttons = `<div class="row" style="margin-top:8px">${mv}<button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>`;
-    } else if (x.status === "done") {
-      line = x.posted.length ? "פורסם ✓ " + x.posted.map((p) => PLAT_HE[p]).join(", ") : "לא פורסם";
-    } else line = "הוצא מהתור";
-    const sent = sentMap()["reel-" + x.number];
-    if (sent && Date.now() - sent.at < 3 * 60e3) buttons = `<p class="sent small">✓ ${SENT_HE[sent.what] || "נשלח"}</p>`;
-    const moved = state.qorder && x.status === "queued" && original[x.position - 1] !== x.number;
-    return `<div class="pub${moved ? " moved" : ""}"><div class="t">${esc(x.title)} <span class="chip">#${x.number}</span></div>
-      <div class="small muted">${line}</div>
-      ${x.error ? `<div class="small" style="color:var(--bad);white-space:pre-line">${esc(x.error)}</div>` : ""}${buttons}</div>`;
-  }).join("")}${state.qorder ? `<div class="qsave"><div class="small" style="margin-bottom:8px">שינית את הסדר. לשמור אותו?</div><div class="row"><button data-qsave style="flex:1">שמור סדר חדש</button><button class="btn-ghost" data-qcancel>בטל</button></div></div>` : ""}${how}</div></details></section>`;
+  const times = (sch.slots_utc || []).slice(0, sch.daily || 2).map((s) => { const [h, m] = s.split(":").map(Number); const t = new Date(); t.setUTCHours(h, m, 0, 0); return ilTime(t, false); }).join(" ו-");
+  const how = `<div class="qhow">כל יום ב-${times} · לחיצה על סרטון פותחת אפשרויות</div>`;
+  if (!now && !queued.length) return `<section>${head}<div class="card empty">התור ריק. סרטון שתאשר ייכנס לכאן ויתפרסם במועד הפנוי הבא.</div></section>`;
+  const sentNote = (x) => { const s = sentMap()["reel-" + x.number]; return s && Date.now() - s.at < 3 * 60e3 ? `<div class="sent small">✓ ${SENT_HE[s.what] || "נשלח"}</div>` : ""; };
+  const nowRow = now ? `<div class="qnow"><div class="qnow-l"><span class="dot"></span>מתפרסם עכשיו</div>
+      <div class="qt2">${esc(now.title)}</div>
+      <div class="qplat">${now.platforms.map((p) => `<span class="${now.posted.includes(p) ? "ok" : ""}">${PLAT_HE[p]} ${now.posted.includes(p) ? "✓" : "⏳"}</span>`).join("")}</div>
+      ${now.error ? `<div class="qerr">${esc(now.error)}</div>` : ""}</div>` : "";
+  const rows = queued.map((x) => {
+    const t = slots[x.position - 1];
+    const open = state.qsel === x.number;
+    const moved = state.qorder && original[x.position - 1] !== x.number;
+    const mv = queued.length > 1 ? `<span class="mv"><button class="btn-ghost" data-mv="${x.number}" data-dir="-1" aria-label="הקדם" ${x.position === 1 ? "disabled" : ""}>▲</button><button class="btn-ghost" data-mv="${x.number}" data-dir="1" aria-label="דחה" ${x.position === queued.length ? "disabled" : ""}>▼</button></span>` : "";
+    return `<div class="qrow${x.position === 1 ? " first" : ""}${moved ? " moved" : ""}${open ? " open" : ""}">
+      <div class="qmain" data-qsel="${x.number}">
+        <span class="qpos">${x.position}</span>
+        <div class="qbody"><div class="qt2">${esc(x.title)}</div><div class="qwhen">${t ? ilTime(t) : ""} · #${x.number}</div></div>
+        ${mv}
+      </div>
+      ${x.error ? `<div class="qerr">${esc(x.error)}</div>` : ""}
+      ${open ? `<div class="qacts"><button class="small" data-now="${x.number}">פרסם עכשיו</button><button class="btn-ghost small" data-unqueue="${x.number}">הוצא מהתור</button></div>` : ""}
+      ${sentNote(x)}</div>`;
+  }).join("");
+  const save = state.qorder ? `<div class="qsave"><div class="small" style="margin-bottom:8px">שינית את הסדר. לשמור אותו?</div><div class="row"><button data-qsave style="flex:1">שמור סדר חדש</button><button class="btn-ghost" data-qcancel>בטל</button></div></div>` : "";
+  return `<section><details id="qbox" ${queueOpen() ? "open" : ""}><summary>${head}</summary><div class="card qcard">${nowRow}${rows}${save}${how}</div></details></section>`;
 }
 /** The queue list opens and closes with a tap on its title; the choice is remembered on this phone. */
 function queueOpen() { return boxOpen("qbox"); }
@@ -848,6 +869,11 @@ function bindMain() {
     state.qorder = list.join() === queuedByBot(state.data || {}).map((x) => x.number).join() ? null : list;
     render();
   }));
+  document.querySelectorAll("[data-qsel]").forEach((el) => (el.onclick = () => {
+    const n = Number(el.dataset.qsel);
+    state.qsel = state.qsel === n ? null : n;
+    render();
+  }));
   document.querySelectorAll("[data-qcancel]").forEach((b) => (b.onclick = () => { state.qorder = null; store.del(QORDER_KEY); render(); }));
   document.querySelectorAll("[data-qsave]").forEach((b) => (b.onclick = async () => {
     const order = state.qorder;
@@ -965,7 +991,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-123804";
+const BUILD = "2026-11-18-124018";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
