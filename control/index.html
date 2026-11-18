@@ -319,9 +319,14 @@ async function load(full = true, soft = false) {
       if ([...before].some((id) => !running().some((x) => x.id === id))) { full = true; state.history = null; }
       // The current step of each running workflow, for the progress bar.
       const live = state.runs.filter((x) => x.status === "in_progress").slice(0, 3);
-      const steps = {};
-      await Promise.all(live.map((x) => ghJson(`/actions/runs/${x.id}/jobs`).then((j) => { steps[x.id] = (j.jobs || []).flatMap((jb) => jb.steps || []); }).catch(() => {})));
-      state.steps = steps;
+      const steps = {}, began = {};
+      await Promise.all(live.map((x) => ghJson(`/actions/runs/${x.id}/jobs`).then((j) => {
+        steps[x.id] = (j.jobs || []).flatMap((jb) => jb.steps || []);
+        // When the work really began: a run can wait in line behind another one first.
+        const t = (j.jobs || []).map((jb) => jb.started_at).filter(Boolean).sort()[0];
+        if (t) began[x.id] = t;
+      }).catch(() => {})));
+      state.steps = steps; state.began = began;
     })];
     await jobs[0];
     if (!state.history) jobs.push(ghJson("/actions/runs?status=success&per_page=60").then((r) => (state.history = r.workflow_runs || [])).catch(() => {}));
@@ -461,15 +466,15 @@ function typicalMinutes(name) {
 }
 function progressOf(x) {
   if (x.status !== "in_progress") return null;
-  const elapsed = (Date.now() - new Date(x.run_started_at || x.created_at)) / 60000;
+  const elapsed = (Date.now() - new Date(state.began?.[x.id] || x.run_started_at || x.created_at)) / 60000;
   const total = typicalMinutes(x.name);
   const steps = state.steps[x.id] || [];
   const byTime = elapsed / total;
   const byStep = steps.length ? steps.filter((s) => s.status === "completed").length / steps.length : 0;
-  const pct = Math.max(2, Math.min(97, Math.round(100 * Math.max(byTime, byStep * 0.9))));
+  const pct = Math.max(2, Math.min(elapsed < total ? 97 : 95, Math.round(100 * Math.max(Math.min(byTime, 0.95), byStep * 0.9))));
   const current = steps.find((s) => s.status === "in_progress");
   const left = Math.max(1, Math.round(total - elapsed));
-  return { pct, step: current ? STEP_HE[current.name] || "" : "", left: elapsed < total ? left : null };
+  return { pct, step: current ? STEP_HE[current.name] || "" : "", left: elapsed < total ? left : null, late: elapsed > total * 1.2 };
 }
 function runningView() {
   const r = running();
@@ -481,7 +486,7 @@ function runningView() {
     return `<a class="banner prog" href="${esc(x.html_url)}" target="_blank" rel="noopener">
       <div class="row split" style="width:100%"><span><span class="dot"></span> ${label}</span><b>${p.pct}%</b></div>
       <div class="bar" role="progressbar" aria-valuenow="${p.pct}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p.pct}%"></i></div>
-      <div class="small muted">${p.step ? esc(p.step) + " · " : ""}${p.left ? `נשארו בערך ${p.left} ${p.left === 1 ? "דקה" : "דקות"}` : "כמעט סיים"}</div></a>`;
+      <div class="small muted">${p.step ? esc(p.step) + " · " : ""}${p.left ? `נשארו בערך ${p.left} ${p.left === 1 ? "דקה" : "דקות"}` : p.late ? "לוקח קצת יותר מהרגיל" : "כמעט סיים"}</div></a>`;
   }).join("")}</div>`;
 }
 
@@ -856,7 +861,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-001340";
+const BUILD = "2026-11-18-001434";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
