@@ -856,13 +856,15 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-001213";
+const BUILD = "2026-11-18-001340";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
     if (!r.ok) return;
     const m = (await r.text()).match(new RegExp("^const " + "BUILD = \"([^\"]+)\"", "m"));
-    if (m && m[1] !== BUILD && !busy()) location.replace(location.pathname + "?v=" + m[1]);
+    // Already tried this version once (the site may still be catching up): don't loop.
+    const tried = new URLSearchParams(location.search).get("v");
+    if (m && m[1] !== BUILD && m[1] !== tried && !busy()) location.replace(location.pathname + "?v=" + m[1]);
   } catch { /* offline: try again later */ }
 }
 setInterval(() => { if (document.visibilityState === "visible") checkForNewPage(); }, 60e3);
