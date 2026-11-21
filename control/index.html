@@ -826,8 +826,9 @@ function mergedPublished(d) {
   return [...groups.values()].map((g) => {
     const totals = {};
     Object.values(g.posts).forEach((x) => Object.entries(x.numbers || {}).forEach(([k, v]) => { if (typeof v === "number" && ["views", "likes", "comments", "shares", "saves"].includes(k)) totals[k] = (totals[k] || 0) + v; }));
-    return { ...g, totals };
-  }).sort((a, b) => (b.number || 0) - (a.number || 0));
+    const first = Object.values(g.posts).map((x) => x.posted_at).filter(Boolean).sort()[0] || "";
+    return { ...g, totals, first };
+  }).sort((a, b) => (b.first || "").localeCompare(a.first || "") || (b.number || 0) - (a.number || 0)); // newest post first
 }
 
 function publishedView(d) {
@@ -1022,7 +1023,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-18-124538";
+const BUILD = "2026-11-21-215605";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
