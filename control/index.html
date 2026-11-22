@@ -161,6 +161,11 @@ th { font-weight: 500; color: var(--muted); font-size: 12px; text-align: start; 
 td { padding: 9px 4px; border-bottom: 1px solid var(--line); }
 tr:last-child td { border-bottom: 0; }
 td.n, th.n { text-align: left; }
+.metric-cell { white-space: nowrap; }
+.metric-change { display:inline-block; padding:1px 5px; border-radius:12px; font-size:.8em; font-weight:600; color:var(--muted); background:var(--card-2); }
+.metric-change.up { color:var(--good); background:color-mix(in srgb,var(--good) 16%,transparent); }
+.metric-change.down { color:var(--bad); background:color-mix(in srgb,var(--bad) 16%,transparent); }
+@media(max-width:460px){.metric-cell .metric-change { display:block; width:max-content; margin-inline-start:auto; }}
 .pl { display: inline-flex; align-items: center; gap: 7px; }
 .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .chart-wrap { position: relative; }
@@ -726,8 +731,17 @@ function numbersView(d) {
   const rows = PLATFORMS.map((p) => {
     const x = d.platforms?.[p.id] || {};
     const tt = x.totals || {};
+    const before = d.platform_comparison_stale ? null : prev?.platforms?.[p.id];
+    function cell(key, value) {
+      const prior = before?.[key];
+      if (!Number.isFinite(value) || !Number.isFinite(prior)) return `<td class="n">${short(value)}</td>`;
+      const delta = value - prior;
+      const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+      const direction = delta > 0 ? "up" : delta < 0 ? "down" : "same";
+      return `<td class="n metric-cell">${short(value)} <small class="metric-change ${direction}" dir="ltr" title="במדידה הקודמת ${fmt(prior)}">${sign}${fmt(Math.abs(delta))}</small></td>`;
+    }
     return `<tr><td><span class="pl"><span class="sw" style="background:${p.color}"></span>${p.he}</span></td>
-      <td class="n">${fmt(x.posts || 0)}</td><td class="n">${short(tt.views)}</td><td class="n">${short(tt.likes)}</td><td class="n">${short(tt.comments)}</td><td class="n">${short(x.followers)}</td></tr>`;
+      <td class="n">${fmt(x.posts || 0)}</td>${cell("views", tt.views)}${cell("likes", tt.likes)}${cell("comments", tt.comments)}${cell("followers", x.followers)}</tr>`;
   }).join("");
   return `<section><h2 class="hrow"><span>המספרים</span>${tipsOf(d).length ? `<button class="abtn" data-analysis>✨ ניתוח סרטונים</button>` : ""}</h2>
     <div class="kpis">
