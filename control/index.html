@@ -88,6 +88,8 @@ header.top {
 .top img { width: 36px; height: 36px; border-radius: 10px; }
 .top h1 { font-size: 18px; margin: 0; line-height: 1.2; }
 .top .sub { font-size: 12px; color: var(--muted); }
+.project-nav { display: inline-flex; align-items: center; min-height: 32px; font-size: 13px; color: var(--accent); text-decoration: none; }
+.project-nav:hover, .project-nav:focus-visible { text-decoration: underline; }
 .top .grow { flex: 1; min-width: 0; }
 button, .btn {
   font: inherit; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; text-decoration: none;
@@ -427,6 +429,7 @@ function render(soft) {
   <header class="top"><div class="top-in">
     <img src="icon-192.png" alt="">
     <div class="grow"><h1>What if? לוח בקרה</h1>
+      ${languageRapsNav()}
       <div class="sub">${state.loading ? "טוען…" : upd ? "נתונים עודכנו " + ago(upd) : state.noData ? "עדיין אין נתונים" : ""}</div></div>
     <button class="small" id="history" style="padding:8px 12px;min-height:40px">היסטוריה</button>
     <button class="icon-btn" id="refresh" aria-label="רענון">${state.loading ? '<span class="spin"></span>' : "↻"}</button>
@@ -446,9 +449,14 @@ function render(soft) {
   bindMain();
 }
 
+function languageRapsNav() {
+  return `<a class="project-nav" href="https://slepoyelad.github.io/video-metrics-runner/studio/#repo=language-raps-metrics" target="_top" rel="noreferrer"><bdi>Language Raps</bdi></a>`;
+}
+
 function loginView() {
   return `<main><div class="login card stack">
     <div class="row"><img src="icon-192.png" alt="" width="48" height="48" style="border-radius:12px"><h1 style="font-size:20px;margin:0">What if? לוח בקרה</h1></div>
+      ${languageRapsNav()}
     <p style="margin:0">כדי לראות את הנתונים ולאשר סרטונים, הדף צריך את <b>קוד הגישה</b> שיצרת ב-GitHub. מזינים אותו פעם אחת, והוא נשמר רק בטלפון הזה.</p>
     <label class="f">קוד גישה (מתחיל ב-github_pat_)
       <input id="tok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="github_pat_…" dir="ltr"></label>
@@ -1035,7 +1043,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-22-131225";
+const BUILD = "2026-11-22-131225-nav";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
