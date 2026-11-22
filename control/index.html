@@ -88,11 +88,8 @@ header.top {
 .top img { width: 36px; height: 36px; border-radius: 10px; }
 .top h1 { font-size: 18px; margin: 0; line-height: 1.2; }
 .top .sub { font-size: 12px; color: var(--muted); }
-.project-nav { position: relative; width: fit-content; font-size: 13px; }
-.project-nav summary { cursor: pointer; color: var(--accent); padding: 3px 0; }
-.project-nav div { position: absolute; inset-inline-start: 0; z-index: 6; min-width: 170px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
-.project-nav a { display: block; padding: 10px; color: var(--text); text-decoration: none; border-radius: 9px; }
-.project-nav a:hover, .project-nav a:focus-visible { background: var(--card-2); }
+.project-nav { display: inline-flex; align-items: center; min-height: 32px; font-size: 13px; color: var(--accent); text-decoration: none; }
+.project-nav:hover, .project-nav:focus-visible { text-decoration: underline; }
 .top .grow { flex: 1; min-width: 0; }
 button, .btn {
   font: inherit; border: 0; border-radius: 12px; padding: 12px 16px; cursor: pointer; text-decoration: none;
@@ -453,9 +450,7 @@ function render(soft) {
 }
 
 function languageRapsNav() {
-  return `<details class="project-nav"><summary><bdi>Language Raps</bdi></summary>
-    <div><a href="http://127.0.0.1:4878/" target="_top" rel="noreferrer">חדר העריכה במחשב</a>
-    <a href="https://slepoyelad.github.io/video-metrics-runner/" target="_top" rel="noreferrer">הדאשבורד באינטרנט</a></div></details>`;
+  return `<a class="project-nav" href="https://slepoyelad.github.io/video-metrics-runner/#repo=language-raps-metrics" target="_top" rel="noreferrer"><bdi>Language Raps</bdi></a>`;
 }
 
 function loginView() {
