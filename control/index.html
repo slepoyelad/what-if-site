@@ -562,7 +562,7 @@ function pendingView(list) {
   const open = list.filter((r) => !r.sent).length;
   return `<section><h2>מחכים לאישור ${open ? `<span class="count">${open}</span>` : ""}</h2>
   ${list.length ? `<div class="stack">${list.map(pendingCard).join("")}</div>`
-    : `<div class="card empty">אין סרטונים שמחכים. הבוט מכין סרטון חדש פעמיים ביום (17:00 ו-23:00), או שאפשר ללחוץ "סרטון חדש עכשיו" למטה.</div>`}
+    : `<div class="card empty">אין סרטונים שמחכים. הבוט מכין סרטון חדש לבד כשיש פחות מ-5 סרטונים מוכנים בתור, או שאפשר ללחוץ "סרטון חדש עכשיו" למטה.</div>`}
   </section>`;
 }
 function pendingCard(r) {
@@ -862,7 +862,7 @@ function controlsView() {
     <button data-run="stats.yml">רענן מספרים מכל הפלטפורמות עכשיו</button>
     <button data-run="dashboard.yml">רענן את הלוח ורעיונות לנושאים</button>
     <a class="btn" href="https://github.com/${REPO}/actions" target="_blank" rel="noopener">פתח את הבוט ב-GitHub</a>
-    <span class="small muted">המספרים מתעדכנים לבד כל 4 שעות. סרטונים חדשים נוצרים לבד פעמיים ביום.</span>
+    <span class="small muted">המספרים מתעדכנים לבד כל 4 שעות. סרטונים חדשים נוצרים לבד כשבתור יש פחות מ-5.</span>
   </div></section>`;
 }
 
@@ -1043,7 +1043,7 @@ function confirmSheet(title, text, okLabel, onOk, withNote) {
 // The browser keeps a copy of this page for up to 10 minutes. Every minute (and when the
 // phone comes back to it) the page asks the site for its newest version, skipping that copy,
 // and switches to it as soon as it differs, so changes show up without a manual refresh.
-const BUILD = "2026-11-22-131225-nav";
+const BUILD = "2026-11-22-132527";
 async function checkForNewPage() {
   try {
     const r = await fetch(location.pathname + "?check=" + Date.now(), { cache: "no-store" });
